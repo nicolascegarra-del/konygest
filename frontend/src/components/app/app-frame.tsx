@@ -41,7 +41,11 @@ function NavLinks({ groups, onNavigate }: { groups: NavGroup[]; onNavigate?: () 
           ) : null}
           <ul className="space-y-0.5">
             {group.items.map((item) => {
-              const active = isActivePath(pathname, item.href);
+              const active = isActivePath(
+                pathname,
+                item.href,
+                group.items.map((sibling) => sibling.href),
+              );
               return (
                 <li key={item.href}>
                   <Link

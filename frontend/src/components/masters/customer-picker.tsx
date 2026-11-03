@@ -20,6 +20,7 @@ export function CustomerPicker({
   initialLabel,
   disabled,
   invalid,
+  emptyLabel = "Elige un cliente…",
 }: {
   id: string;
   value: string;
@@ -27,6 +28,8 @@ export function CustomerPicker({
   initialLabel?: string;
   disabled?: boolean;
   invalid?: boolean;
+  /** Texto de la opción vacía (en filtros: «Todos los clientes»). */
+  emptyLabel?: string;
 }) {
   const [search, setSearch] = useState("");
   const [selectedLabel, setSelectedLabel] = useState(initialLabel ?? "");
@@ -61,7 +64,7 @@ export function CustomerPicker({
           onChange(event.target.value);
         }}
       >
-        <option value="">{query.isPending ? "Cargando clientes…" : "Elige un cliente…"}</option>
+        <option value="">{query.isPending ? "Cargando clientes…" : emptyLabel}</option>
         {value && !selectedInResults ? <option value={value}>{selectedLabel || "Cliente actual"}</option> : null}
         {options.map((customer) => (
           <option key={customer.id} value={customer.id}>

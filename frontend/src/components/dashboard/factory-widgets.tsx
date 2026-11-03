@@ -15,7 +15,7 @@ import type { ProductionOrder, StockLevel, StockSummaryRow } from "@/types/fase1
 
 import type { WidgetProps } from "./types";
 
-function WidgetCard({ title, href, linkLabel, children }: { title: string; href: string; linkLabel: string; children: ReactNode }) {
+export function WidgetCard({ title, href, linkLabel, children }: { title: string; href: string; linkLabel: string; children: ReactNode }) {
   return (
     <Card className="h-full">
       <CardHeader className="flex-row items-center justify-between gap-2">

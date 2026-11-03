@@ -39,8 +39,10 @@ const FRIENDLY_MESSAGES: Record<string, string> = {
   EMAIL_TEST_FAILED: "No se pudo enviar el email de prueba. Revisa la configuración del servidor.",
   INSUFFICIENT_STOCK: "No hay stock suficiente en ese silo: el movimiento lo dejaría en negativo.",
   INVALID_REFERENCE: "Alguno de los datos elegidos no existe o está dado de baja. Revísalo y vuelve a probar.",
-  INVALID_ITEM_KIND: "Ese artículo no vale aquí: las entradas son de materias primas y la fabricación, de piensos.",
-  INVALID_STATUS: "La orden ya no está en un estado que permita esta acción. Recarga la página.",
+  INVALID_ITEM_KIND: "Ese artículo no vale aquí: las entradas son de materias primas; la fabricación y los pedidos, de piensos.",
+  INVALID_STATUS: "Ya no está en un estado que permita esta acción (puede que otra persona la haya cambiado). Recarga la página.",
+  PRICE_REQUIRED: "El cliente no tiene precio para este pienso: indica el precio a mano.",
+  CREDIT_LIMIT_EXCEEDED: "El pedido supera el riesgo (límite de crédito) del cliente.",
   NETWORK_ERROR: "No hay conexión con el servidor. Comprueba tu red e inténtalo de nuevo.",
 };
 

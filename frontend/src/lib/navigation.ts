@@ -5,8 +5,11 @@ import {
   Boxes,
   Building,
   Building2,
+  ClipboardCheck,
+  ClipboardList,
   Contact,
   CreditCard,
+  FilePlus2,
   Factory,
   Gauge,
   Home,
@@ -45,6 +48,14 @@ export interface NavGroup {
 /** Menú de la empresa. Las fases siguientes añaden aquí sus grupos (pedidos, CRM...). */
 const TENANT_NAV: NavGroup[] = [
   { label: null, items: [{ href: "/inicio", label: "Inicio", icon: Home }] },
+  {
+    label: "Pedidos",
+    items: [
+      { href: "/pedidos", label: "Pedidos", icon: ClipboardList, permission: "pedidos.ver", module: "ventas" },
+      { href: "/pedidos/nuevo", label: "Nuevo pedido", icon: FilePlus2, permission: "pedidos.crear", module: "ventas" },
+      { href: "/pedidos/validar", label: "Por validar", icon: ClipboardCheck, permission: "pedidos.validar", module: "ventas" },
+    ],
+  },
   {
     label: "Maestros",
     items: [
@@ -119,8 +130,18 @@ export function buildPlatformNav(): NavGroup[] {
   return PLATFORM_NAV;
 }
 
-/** ¿Está activo el enlace para la ruta actual? */
-export function isActivePath(pathname: string, href: string): boolean {
+function matchesPath(pathname: string, href: string): boolean {
   if (href === "/admin" || href === "/inicio" || href === "/cuenta") return pathname === href;
   return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+/**
+ * ¿Está activo el enlace para la ruta actual? Si se pasan los enlaces hermanos, gana el más
+ * específico: en `/pedidos/nuevo` se marca «Nuevo pedido» y no también «Pedidos».
+ */
+export function isActivePath(pathname: string, href: string, siblingHrefs: string[] = []): boolean {
+  if (!matchesPath(pathname, href)) return false;
+  return !siblingHrefs.some(
+    (other) => other !== href && other.length > href.length && other.startsWith(href) && matchesPath(pathname, other),
+  );
 }

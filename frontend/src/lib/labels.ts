@@ -1,5 +1,6 @@
 import type { TenantStatus } from "@/types/api";
 import type { ItemKind, MovementKind, OrderStatus, PriceSource, SiloKind } from "@/types/fase1";
+import type { LinePriceSource, SalesOrderStatus } from "@/types/fase2";
 
 export const TENANT_STATUS_LABELS: Record<TenantStatus, string> = {
   trial: "En prueba",
@@ -59,4 +60,49 @@ export const PRICE_SOURCE_LABELS: Record<PriceSource, string> = {
   price_list: "Tarifa del cliente",
   base: "Precio general",
   none: "Sin precio",
+};
+
+// ─── Pedidos de venta (fase 2) ─────────────────────
+
+export type BadgeVariant = "default" | "secondary" | "outline" | "success" | "warning" | "destructive";
+
+export const SALES_ORDER_STATUS_LABELS: Record<SalesOrderStatus, string> = {
+  draft: "Borrador",
+  pending: "Pendiente de validar",
+  rejected: "Rechazado",
+  confirmed: "Confirmado",
+  planned: "Planificado",
+  loaded: "Cargado",
+  delivered: "Entregado",
+  invoiced: "Facturado",
+  cancelled: "Cancelado",
+};
+
+export const SALES_ORDER_STATUS_VARIANTS: Record<SalesOrderStatus, BadgeVariant> = {
+  draft: "outline",
+  pending: "warning",
+  rejected: "destructive",
+  confirmed: "success",
+  planned: "secondary",
+  loaded: "secondary",
+  delivered: "success",
+  invoiced: "default",
+  cancelled: "destructive",
+};
+
+export const SALES_ORDER_STATUSES = Object.keys(SALES_ORDER_STATUS_LABELS) as SalesOrderStatus[];
+
+/** Etiqueta corta del origen del precio de una línea de pedido. */
+export const LINE_PRICE_SOURCE_LABELS: Record<LinePriceSource, string> = {
+  customer: "Negociado",
+  price_list: "Tarifa",
+  base: "General",
+  manual: "Manual",
+};
+
+export const LINE_PRICE_SOURCE_VARIANTS: Record<LinePriceSource, BadgeVariant> = {
+  customer: "success",
+  price_list: "secondary",
+  base: "outline",
+  manual: "warning",
 };
