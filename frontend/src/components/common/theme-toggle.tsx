@@ -2,12 +2,26 @@
 
 import { Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
+import { useSyncExternalStore } from "react";
 
 import { Button } from "@/components/ui/button";
 
+const noopSubscribe = () => () => {};
+
+/** true solo en el cliente: el servidor no conoce el tema guardado en el navegador. */
+function useIsClient(): boolean {
+  return useSyncExternalStore(
+    noopSubscribe,
+    () => true,
+    () => false,
+  );
+}
+
 export function ThemeToggle({ className, onNavy = false }: { className?: string; onNavy?: boolean }) {
   const { resolvedTheme, setTheme } = useTheme();
-  const isDark = resolvedTheme === "dark";
+  // En el servidor y en la primera pasada del cliente se pinta siempre lo mismo (modo claro),
+  // para que la hidratación coincida; después se muestra el tema real.
+  const isDark = useIsClient() && resolvedTheme === "dark";
   return (
     <Button
       variant="ghost"
