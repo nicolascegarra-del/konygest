@@ -157,6 +157,27 @@ WIDGETS: dict[str, Widget] = {
             module="fabrica",
         ),
         Widget(
+            "mis_pedidos",
+            "Mis pedidos en curso",
+            "Borradores, pendientes de validar y rechazados.",
+            permission="pedidos.crear",
+            module="ventas",
+        ),
+        Widget(
+            "pedidos_por_validar",
+            "Pedidos por validar",
+            "Pedidos que esperan la revisión de oficina.",
+            permission="pedidos.validar",
+            module="ventas",
+        ),
+        Widget(
+            "pedidos_semana",
+            "Pedidos confirmados de la semana",
+            "Kilos y pedidos confirmados por fecha de entrega.",
+            permission="pedidos.ver",
+            module="ventas",
+        ),
+        Widget(
             "fabricacion_hoy",
             "Fabricación de hoy",
             "Órdenes de fabricación previstas para hoy.",
@@ -205,7 +226,7 @@ ROLE_TEMPLATES: list[RoleTemplate] = [
             "crm.objetivos",
             "mantenimiento.ver",
         ),
-        ["bienvenida", "resumen_empresa", "roturas_stock", "notificaciones"],
+        ["bienvenida", "resumen_empresa", "pedidos_semana", "roturas_stock", "notificaciones"],
     ),
     RoleTemplate(
         "Oficina",
@@ -225,7 +246,13 @@ ROLE_TEMPLATES: list[RoleTemplate] = [
             "ia.usar",
             "crm.ver",
         ),
-        ["bienvenida", "notificaciones", "accesos_rapidos"],
+        [
+            "bienvenida",
+            "pedidos_por_validar",
+            "pedidos_semana",
+            "notificaciones",
+            "accesos_rapidos",
+        ],
     ),
     RoleTemplate(
         "Fábrica",
@@ -266,7 +293,7 @@ ROLE_TEMPLATES: list[RoleTemplate] = [
             "crm.ver": Scope.OWN,
             "crm.gestionar": Scope.OWN,
         },
-        ["bienvenida", "notificaciones", "accesos_rapidos"],
+        ["bienvenida", "mis_pedidos", "notificaciones", "accesos_rapidos"],
     ),
 ]
 
@@ -288,5 +315,8 @@ NOTIFICATION_TYPES: dict[str, NotificationType] = {
         NotificationType("usuario_alta", "Nuevo usuario en la empresa"),
         NotificationType("seguridad", "Seguridad de la cuenta", email=True),
         NotificationType("stock_bajo", "Stock por debajo del mínimo", push=True),
+        NotificationType("pedido_pendiente", "Pedido pendiente de validar", push=True),
+        NotificationType("pedido_confirmado", "Pedido confirmado", push=True),
+        NotificationType("pedido_rechazado", "Pedido rechazado", email=True, push=True),
     ]
 }

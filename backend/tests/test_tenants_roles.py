@@ -139,7 +139,7 @@ def test_dashboard_cuando_sin_personalizar_entonces_usa_el_del_rol_y_se_puede_re
     board = client.get("/api/v1/me/dashboard", headers=comercial).json()
     assert board["customized"] is False
     widgets = [w["widget"] for w in board["layout"]]
-    assert widgets == ["bienvenida", "notificaciones", "accesos_rapidos"]
+    assert widgets == ["bienvenida", "mis_pedidos", "notificaciones", "accesos_rapidos"]
     # El comercial no tiene usuarios.ver: no puede añadir el resumen de empresa
     assert "resumen_empresa" not in {w["code"] for w in board["catalog"]}
 

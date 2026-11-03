@@ -10,6 +10,7 @@ from app.core.errors import register_error_handlers
 from app.modules.auth.router import router as auth_router
 from app.modules.masters.router import router as masters_router
 from app.modules.notifications.router import router as notifications_router
+from app.modules.orders.router import router as orders_router
 from app.modules.platform.router import router as admin_router
 from app.modules.production.router import router as production_router
 from app.modules.stock.router import router as stock_router
@@ -61,6 +62,7 @@ for router in (
     masters_router,
     stock_router,
     production_router,
+    orders_router,
 ):
     app.include_router(router, prefix=API_PREFIX)
 
