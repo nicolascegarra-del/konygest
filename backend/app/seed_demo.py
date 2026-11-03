@@ -6,7 +6,8 @@ Usuarios creados: <perfil>@demo.konygest.es (admin, direccion, oficina, fabrica,
 También carga maestros (clientes, explotaciones, piensos, materias primas, silos,
 camiones...) y un stock inicial, si la empresa aún no tiene artículos, y actividad
 de los últimos días (entradas de báscula, órdenes de fabricación en todos los
-estados, ajustes, precios negociados y más clientes) si aún no tiene fabricación.
+estados, ajustes, precios negociados y más clientes) si aún no tiene fabricación,
+y pedidos de los comerciales en todos los estados si aún no tiene pedidos.
 """
 
 import sys
@@ -37,6 +38,9 @@ from app.modules.masters.models import (
     Truck,
     VatRate,
 )
+from app.modules.masters.service import quote_price
+from app.modules.orders.models import Order, OrderLine, OrderStatus, PriceSource
+from app.modules.orders.service import today_madrid
 from app.modules.production.models import ProductionOrder, ProductionStatus
 from app.modules.stock.models import MovementKind, RawMaterialReceipt, StockMovement
 from app.modules.tenants.models import Tenant, TenantStatus
@@ -90,6 +94,11 @@ def main(password: str) -> None:
         else:
             seed_activity(db, tenant.id)
             print("Cargada actividad de demostración (entradas, fabricación, ajustes...).")
+        if db.exec(select(Order.id).where(Order.tenant_id == tenant.id)).first():
+            print("Los pedidos de demostración ya existen.")
+        else:
+            count = seed_orders(db, tenant.id)
+            print(f"Cargados {count} pedidos de demostración.")
         db.commit()
 
 
@@ -405,6 +414,122 @@ def seed_activity(db: Session, tenant_id: UUID) -> None:
             now - timedelta(days=days_ago),
             notes=reason,
         )
+
+
+# (cliente, quién lo crea, estado, días hasta la entrega, notas, motivo,
+#  líneas [(pienso, kg, silo de la explotación, precio manual o None)])
+# C004 tiene 30.000 € de riesgo: con sus tres confirmados, su pendiente lo supera.
+# fmt: off
+SALES_ORDERS = [
+    ("C001", "comercial", OrderStatus.DRAFT, 3, "", "",
+     [("P-CEB", 12000, "Silo 1", None), ("P-LEC", 2000, "Silo 2", None)]),
+    ("C002", "comercial", OrderStatus.DRAFT, 4, "Llamar antes de descargar", "",
+     [("P-CEB", 14000, "Silo 1", None)]),
+    ("C001", "comercial", OrderStatus.PENDING, 2, "Precio acordado por volumen", "",
+     [("P-CEB", 10000, "Silo 1", "0.2850")]),
+    ("C004", "comercial", OrderStatus.PENDING, 2, "", "",
+     [("P-VAC", 18000, "Silo único", None), ("P-COR", 12000, "Silo único", None)]),
+    ("C003", "prueba-comercial", OrderStatus.PENDING, 1, "", "",
+     [("P-VAC", 14000, "Silo 1", None), ("P-VAC", 8000, "Silo 2", None)]),
+    ("C002", "comercial", OrderStatus.REJECTED, 5, "", "Precio por debajo de tarifa sin "
+     "autorización de dirección: revísalo con el cliente.",
+     [("P-LEC", 3000, "Silo 2", "0.4000")]),
+    ("C004", "comercial", OrderStatus.CONFIRMED, 1, "", "",
+     [("P-CEB", 24000, "Silo único", None)]),
+    ("C004", "comercial", OrderStatus.CONFIRMED, 2, "", "",
+     [("P-VAC", 24000, "Silo único", None)]),
+    ("C004", "oficina", OrderStatus.CONFIRMED, 3, "Pedido telefónico", "",
+     [("P-CEB", 18000, "Silo único", None)]),
+    ("C005", "prueba-comercial", OrderStatus.CONFIRMED, 1, "", "",
+     [("P-LEC", 6000, "Silo único", None)]),
+    ("C001", "oficina", OrderStatus.CONFIRMED, 0, "", "",
+     [("P-CEB", 14000, "Silo 1", None)]),
+    ("C003", "prueba-comercial", OrderStatus.CANCELLED, -2, "", "El cliente ha retrasado "
+     "la entrada de animales; lo pedirá de nuevo.",
+     [("P-VAC", 10000, "Silo 1", None)]),
+]
+# fmt: on
+
+
+def seed_orders(db: Session, tenant_id: UUID) -> int:
+    """Pedidos en todos los estados con los precios que corresponden a cada cliente.
+
+    Los de `prueba-comercial@` (si existe) los crea él; si no, oficina, para que el
+    seed funcione en una base de datos sin ese usuario.
+    """
+    items = {i.code: i for i in db.exec(select(Item).where(Item.tenant_id == tenant_id)).all()}
+    customers = {
+        c.code: c for c in db.exec(select(Customer).where(Customer.tenant_id == tenant_id)).all()
+    }
+    farms = {
+        f.customer_id: f for f in db.exec(select(Farm).where(Farm.tenant_id == tenant_id)).all()
+    }
+    users = {
+        u.email.split("@")[0]: u
+        for u in db.exec(select(User).where(User.tenant_id == tenant_id)).all()
+    }
+    office = users.get("oficina")
+    now = utcnow()
+    today = today_madrid()
+    cent = Decimal("0.01")
+    count = 0
+    for index, (code, author, status, offset, notes, reason, lines) in enumerate(SALES_ORDERS):
+        customer = customers.get(code)
+        creator = users.get(author) or office
+        if customer is None or customer.id not in farms:
+            continue
+        created = now - timedelta(days=4, hours=len(SALES_ORDERS) - index)
+        order = Order(
+            tenant_id=tenant_id,
+            number=next_number(db, tenant_id, "PED", created.year),
+            customer_id=customer.id,
+            farm_id=farms[customer.id].id,
+            # Como en la API: el comercial del cliente si el pedido lo hace oficina
+            sales_rep_id=creator.id if creator and creator is not office else customer.sales_rep_id,
+            status=status,
+            requested_date=today + timedelta(days=offset),
+            notes=notes,
+            status_reason=reason,
+            created_by=creator.id if creator else None,
+            created_at=created,
+            updated_at=created + timedelta(hours=2),
+        )
+        if status != OrderStatus.DRAFT:
+            order.submitted_at = created + timedelta(hours=1)
+        if status == OrderStatus.CONFIRMED and office:
+            order.validated_by = office.id
+            order.validated_at = created + timedelta(hours=2)
+        db.add(order)
+        db.flush()
+        total_kg = total_amount = Decimal(0)
+        for position, (item_code, kg, silo, manual) in enumerate(lines, start=1):
+            item = items[item_code]
+            quote = quote_price(db, customer, item)
+            reference = quote.price
+            price = Decimal(manual) if manual else reference
+            assert price is not None, f"{item_code} sin precio para {code}"
+            amount = (Decimal(kg) * price).quantize(cent)
+            db.add(
+                OrderLine(
+                    tenant_id=tenant_id,
+                    order_id=order.id,
+                    position=position,
+                    item_id=item.id,
+                    quantity_kg=Decimal(kg),
+                    unit_price=price,
+                    price_source=PriceSource.MANUAL if manual else PriceSource(quote.source),
+                    reference_price=reference,
+                    amount=amount,
+                    farm_silo=silo,
+                )
+            )
+            total_kg += Decimal(kg)
+            total_amount += amount
+        order.total_kg = total_kg
+        order.total_amount = total_amount
+        db.add(order)
+        count += 1
+    return count
 
 
 if __name__ == "__main__":
