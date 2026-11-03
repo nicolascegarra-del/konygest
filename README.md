@@ -42,7 +42,11 @@ uv run ruff check app tests && uv run ruff format --check app tests
 uv run alembic revision --autogenerate -m "descripcion"
 uv run alembic upgrade head
 ```
-Contrato de la API de la fase 0: [docs/api-fase0.md](docs/api-fase0.md).
+Contrato de la API: [fase 0](docs/api-fase0.md) (empresas, usuarios, roles, avisos) y
+[fase 1](docs/api-fase1.md) (maestros, stock y fabricación).
+
+Datos de demostración (fábrica con usuarios por perfil, maestros y stock inicial):
+`uv run python -m app.seed_demo <contraseña>`.
 
 ## Deploy
 Coolify sobre VPS Contabo.
