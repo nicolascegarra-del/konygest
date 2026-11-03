@@ -8,8 +8,11 @@ import app.models  # noqa: F401  (registra los modelos)
 from app.core.config import get_settings
 from app.core.errors import register_error_handlers
 from app.modules.auth.router import router as auth_router
+from app.modules.masters.router import router as masters_router
 from app.modules.notifications.router import router as notifications_router
 from app.modules.platform.router import router as admin_router
+from app.modules.production.router import router as production_router
+from app.modules.stock.router import router as stock_router
 from app.modules.tenants.router import router as tenants_router
 from app.modules.users.router import router as users_router
 
@@ -49,7 +52,16 @@ async def request_context(request: Request, call_next):
 register_error_handlers(app)
 
 API_PREFIX = "/api/v1"
-for router in (auth_router, users_router, tenants_router, notifications_router, admin_router):
+for router in (
+    auth_router,
+    users_router,
+    tenants_router,
+    notifications_router,
+    admin_router,
+    masters_router,
+    stock_router,
+    production_router,
+):
     app.include_router(router, prefix=API_PREFIX)
 
 

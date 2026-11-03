@@ -142,6 +142,27 @@ WIDGETS: dict[str, Widget] = {
             "Usuarios, roles y módulos activos.",
             permission="usuarios.ver",
         ),
+        Widget(
+            "stock_por_silo",
+            "Stock por silo",
+            "Lo que hay ahora en cada silo y almacén.",
+            permission="stock.ver",
+            module="fabrica",
+        ),
+        Widget(
+            "roturas_stock",
+            "Roturas de stock",
+            "Artículos por debajo de su stock mínimo.",
+            permission="stock.ver",
+            module="fabrica",
+        ),
+        Widget(
+            "fabricacion_hoy",
+            "Fabricación de hoy",
+            "Órdenes de fabricación previstas para hoy.",
+            permission="fabricacion.ver",
+            module="fabrica",
+        ),
     ]
 }
 
@@ -184,7 +205,7 @@ ROLE_TEMPLATES: list[RoleTemplate] = [
             "crm.objetivos",
             "mantenimiento.ver",
         ),
-        ["bienvenida", "resumen_empresa", "notificaciones"],
+        ["bienvenida", "resumen_empresa", "roturas_stock", "notificaciones"],
     ),
     RoleTemplate(
         "Oficina",
@@ -223,7 +244,14 @@ ROLE_TEMPLATES: list[RoleTemplate] = [
             "mantenimiento.ver",
             "mantenimiento.gestionar",
         ),
-        ["bienvenida", "notificaciones", "accesos_rapidos"],
+        [
+            "bienvenida",
+            "fabricacion_hoy",
+            "stock_por_silo",
+            "roturas_stock",
+            "notificaciones",
+            "accesos_rapidos",
+        ],
     ),
     RoleTemplate(
         "Comercial",
@@ -259,5 +287,6 @@ NOTIFICATION_TYPES: dict[str, NotificationType] = {
         NotificationType("sistema", "Avisos del sistema", email=True),
         NotificationType("usuario_alta", "Nuevo usuario en la empresa"),
         NotificationType("seguridad", "Seguridad de la cuenta", email=True),
+        NotificationType("stock_bajo", "Stock por debajo del mínimo", push=True),
     ]
 }
