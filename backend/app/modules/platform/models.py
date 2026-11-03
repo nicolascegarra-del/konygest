@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import JSON, Column
+from sqlalchemy import JSON, Column, Index
 from sqlmodel import Field, SQLModel
 
 from app.core.models import created_at_field, id_field, tenant_fk
@@ -25,6 +25,8 @@ class EmailConfig(SQLModel, table=True):
 
 
 class AuditLog(SQLModel, table=True):
+    __table_args__ = (Index("ix_audit_log_tenant_created", "tenant_id", "created_at"),)
+
     __tablename__ = "audit_log"
 
     id: UUID = id_field()

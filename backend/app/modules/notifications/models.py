@@ -1,12 +1,15 @@
 from datetime import datetime
 from uuid import UUID
 
+from sqlalchemy import Index
 from sqlmodel import Field, SQLModel, UniqueConstraint
 
 from app.core.models import created_at_field, dt_field, id_field, tenant_fk
 
 
 class Notification(SQLModel, table=True):
+    __table_args__ = (Index("ix_notification_user_unread", "user_id", "read_at", "created_at"),)
+
     id: UUID = id_field()
     tenant_id: UUID = tenant_fk()
     user_id: UUID = Field(foreign_key="app_user.id", index=True, ondelete="CASCADE")
