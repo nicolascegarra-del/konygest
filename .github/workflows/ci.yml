@@ -1,0 +1,75 @@
+# CI de Konygest: lint y tests del backend contra PostgreSQL real (para que la
+# Row Level Security se ejecute igual que en producción) y lint, tipos, tests y
+# build del frontend.
+name: CI
+
+on:
+  push:
+    branches: [v1, main, develop, staging]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (ruff + pytest)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: konygest
+          POSTGRES_PASSWORD: ci-owner
+          POSTGRES_DB: konygest
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U konygest -d konygest"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PGPASSWORD: ci-owner
+      TEST_DATABASE_URL: postgresql+psycopg://konygest:ci-owner@localhost:5432/konygest_test
+      TEST_DATABASE_APP_URL: postgresql+psycopg://konygest_app:ci-app@localhost:5432/konygest_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.11.11"
+          enable-cache: true
+      - name: Preparar la base de datos de tests
+        # Lo mismo que docker/postgres/init.sh: rol de la API y BD konygest_test
+        run: |
+          psql -h localhost -U konygest -d konygest -v ON_ERROR_STOP=1 <<'SQL'
+          CREATE ROLE konygest_app LOGIN PASSWORD 'ci-app';
+          CREATE DATABASE konygest_test OWNER konygest;
+          GRANT CONNECT ON DATABASE konygest_test TO konygest_app;
+          SQL
+      - run: uv sync --frozen
+      - run: uv run ruff check app tests
+      - run: uv run ruff format --check app tests
+      - run: uv run pytest --cov=app --cov-fail-under=70
+
+  frontend:
+    name: Frontend (eslint + tsc + vitest + build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci --no-fund --no-audit
+      - run: npx eslint . --max-warnings 0
+      - run: npx tsc --noEmit
+      - run: npx vitest run
+      - run: npm run build
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
