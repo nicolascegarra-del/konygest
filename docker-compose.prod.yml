@@ -51,7 +51,7 @@ services:
     command: >
       sh -c "python -m app.db_setup && alembic upgrade head && python -m app.bootstrap &&
       exec gunicorn app.main:app -k uvicorn.workers.UvicornWorker -w 2 -b 0.0.0.0:8000
-      --forwarded-allow-ips='*' --access-logfile -"
+      --forwarded-allow-ips='127.0.0.1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16' --access-logfile -"
     expose:
       - "8000"
     healthcheck:

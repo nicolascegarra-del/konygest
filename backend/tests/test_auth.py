@@ -42,7 +42,7 @@ def test_login_cuando_5_fallos_entonces_cuenta_bloqueada(client, make_tenant):
 
 
 def test_login_cuando_muchos_intentos_desde_misma_ip_entonces_429(client):
-    codes = [login(client, f"u{i}@x.es", "x").status_code for i in range(11)]
+    codes = [login(client, f"u{i}@x.es", "x").status_code for i in range(21)]
     assert codes[-1] == 429
 
 

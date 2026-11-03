@@ -68,7 +68,7 @@ def _clear_refresh_cookie(response: Response) -> None:
     summary="Iniciar sesión",
     description="Si el usuario tiene 2FA y no envía `totp_code`, responde 401 `TOTP_REQUIRED`.",
     response_model=LoginOut,
-    dependencies=[Depends(rate_limit("login", 10, 300))],
+    dependencies=[Depends(rate_limit("login", 20, 300))],
 )
 def login(data: LoginIn, request: Request, response: Response, db: SystemDb) -> LoginOut:
     user = service.authenticate(db, data.email, data.password, data.totp_code)

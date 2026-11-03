@@ -1,0 +1,145 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Tokens de identidad Klyp (siempre disponibles como klyp-*) */
+:root {
+  --klyp-navy: #051937;
+  --klyp-navy-light: #1a3a6b;
+  --klyp-accent: #2e6db4;
+  --klyp-pale: #e8edf5;
+  --klyp-gray: #6b7280;
+  --klyp-text-dark: #374151;
+
+  /* Tokens semánticos (shadcn/ui) - modo claro */
+  --background: #ffffff;
+  --foreground: #374151;
+  --heading: #051937;
+  --card: #ffffff;
+  --card-foreground: #374151;
+  --popover: #ffffff;
+  --popover-foreground: #374151;
+  --primary: #2e6db4;
+  --primary-foreground: #ffffff;
+  --secondary: #e8edf5;
+  --secondary-foreground: #051937;
+  --muted: #e8edf5;
+  --muted-foreground: #5b6472;
+  --accent: #e8edf5;
+  --accent-foreground: #051937;
+  --destructive: #b42318;
+  --destructive-foreground: #ffffff;
+  --success: #17744a;
+  --warning: #a15c07;
+  --border: #d5dce8;
+  --input: #c3ccdb;
+  --ring: #2e6db4;
+  --link: #2e6db4;
+  --sidebar: #051937;
+  --sidebar-foreground: #e8edf5;
+  --radius: 0.5rem;
+}
+
+.dark {
+  --background: #051937;
+  --foreground: #e8edf5;
+  --heading: #ffffff;
+  --card: #0a2349;
+  --card-foreground: #e8edf5;
+  --popover: #0a2349;
+  --popover-foreground: #e8edf5;
+  --primary: #2e6db4;
+  --primary-foreground: #ffffff;
+  --secondary: #1a3a6b;
+  --secondary-foreground: #ffffff;
+  --muted: #0f2c58;
+  --muted-foreground: #a8b5cc;
+  --accent: #1a3a6b;
+  --accent-foreground: #ffffff;
+  --destructive: #e5584b;
+  --destructive-foreground: #ffffff;
+  --success: #4cc38a;
+  --warning: #f0b35a;
+  --border: #1f3f72;
+  --input: #2a4d85;
+  --ring: #6aa3e6;
+  --link: #7db2f0;
+  --sidebar: #031024;
+  --sidebar-foreground: #e8edf5;
+}
+
+@theme inline {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-logo: var(--font-nunito), var(--font-inter), sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  --color-klyp-navy: var(--klyp-navy);
+  --color-klyp-navy-light: var(--klyp-navy-light);
+  --color-klyp-accent: var(--klyp-accent);
+  --color-klyp-pale: var(--klyp-pale);
+  --color-klyp-gray: var(--klyp-gray);
+  --color-klyp-text-dark: var(--klyp-text-dark);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-heading: var(--heading);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-link: var(--link);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  h1,
+  h2,
+  h3,
+  h4 {
+    color: var(--heading);
+  }
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    * {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
