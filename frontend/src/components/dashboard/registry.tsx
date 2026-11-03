@@ -1,5 +1,6 @@
 import type { ComponentType } from "react";
 
+import { ProductionTodayWidget, StockBySiloWidget, StockShortagesWidget } from "./factory-widgets";
 import {
   CompanySummaryWidget,
   NotificationsWidget,
@@ -19,6 +20,9 @@ export const WIDGET_REGISTRY: Record<string, ComponentType<WidgetProps>> = {
   accesos_rapidos: QuickLinksWidget,
   notificaciones: NotificationsWidget,
   resumen_empresa: CompanySummaryWidget,
+  stock_por_silo: StockBySiloWidget,
+  roturas_stock: StockShortagesWidget,
+  fabricacion_hoy: ProductionTodayWidget,
 };
 
 export function hasWidget(code: string): boolean {

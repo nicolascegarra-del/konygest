@@ -1,13 +1,27 @@
 import {
   Activity,
+  ArrowLeftRight,
   Bell,
+  Boxes,
+  Building,
   Building2,
+  Contact,
+  CreditCard,
+  Factory,
   Gauge,
   Home,
+  IdCard,
   Mail,
+  Package,
+  PackagePlus,
+  Percent,
   ShieldCheck,
+  Tags,
+  Tractor,
+  Truck,
   Users,
   UserCog,
+  Warehouse,
   type LucideIcon,
 } from "lucide-react";
 
@@ -28,9 +42,33 @@ export interface NavGroup {
   items: NavItem[];
 }
 
-/** Menú de la empresa. Las fases siguientes añaden aquí sus grupos (pedidos, fábrica...). */
+/** Menú de la empresa. Las fases siguientes añaden aquí sus grupos (pedidos, CRM...). */
 const TENANT_NAV: NavGroup[] = [
   { label: null, items: [{ href: "/inicio", label: "Inicio", icon: Home }] },
+  {
+    label: "Maestros",
+    items: [
+      { href: "/maestros/clientes", label: "Clientes", icon: Contact, permission: "maestros.ver" },
+      { href: "/maestros/explotaciones", label: "Explotaciones", icon: Tractor, permission: "maestros.ver" },
+      { href: "/maestros/articulos", label: "Artículos", icon: Package, permission: "maestros.ver" },
+      { href: "/maestros/silos", label: "Silos y almacenes", icon: Warehouse, permission: "maestros.ver" },
+      { href: "/maestros/tarifas", label: "Tarifas", icon: Tags, permission: "maestros.ver" },
+      { href: "/maestros/transportistas", label: "Transportistas", icon: Building, permission: "maestros.ver" },
+      { href: "/maestros/camiones", label: "Camiones", icon: Truck, permission: "maestros.ver" },
+      { href: "/maestros/conductores", label: "Conductores", icon: IdCard, permission: "maestros.ver" },
+      { href: "/maestros/iva", label: "Tipos de IVA", icon: Percent, permission: "maestros.ver" },
+      { href: "/maestros/formas-pago", label: "Formas de pago", icon: CreditCard, permission: "maestros.ver" },
+    ],
+  },
+  {
+    label: "Fábrica",
+    items: [
+      { href: "/fabrica/stock", label: "Stock", icon: Boxes, permission: "stock.ver", module: "fabrica" },
+      { href: "/fabrica/movimientos", label: "Movimientos", icon: ArrowLeftRight, permission: "stock.ver", module: "fabrica" },
+      { href: "/fabrica/entradas", label: "Entradas de MP", icon: PackagePlus, permission: "stock.ver", module: "fabrica" },
+      { href: "/fabrica/fabricacion", label: "Fabricación", icon: Factory, permission: "fabricacion.ver", module: "fabrica" },
+    ],
+  },
   {
     label: "Ajustes",
     items: [
