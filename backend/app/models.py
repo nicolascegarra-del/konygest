@@ -22,6 +22,7 @@ from app.modules.notifications.models import (
     TenantNotificationSetting,
     UserNotificationPreference,
 )
+from app.modules.orders.models import Order, OrderLine
 from app.modules.platform.models import AuditLog, EmailConfig
 from app.modules.production.models import ProductionOrder
 from app.modules.stock.models import RawMaterialReceipt, StockMovement
@@ -46,6 +47,8 @@ __all__ = [
     "ProductionOrder",
     "RawMaterialReceipt",
     "Notification",
+    "Order",
+    "OrderLine",
     "PushSubscription",
     "Role",
     "RolePermission",
