@@ -19,7 +19,7 @@ Mantén esta tabla al día al cerrar cada fase.
 | 1 | Maestros, stock (libro inmutable), entradas de MP con báscula, fabricación de producto terminado | ✅ en `v1` |
 | 2 | Pedidos de comerciales con validación en oficina (riesgo, precio, stock) | ✅ en `v1` |
 | 3 | Logística: cargas, compartimentos, orden de carga, pesada, albarán PDF; módulo de documentos (storage + WeasyPrint) y destino de documentos por empresa (Google Drive, OneDrive/SharePoint, SMB; contrato en `docs/api-documentos.md`) | ✅ en `v1` |
-| 4 | Facturación, abonos y registro Verifactu (sin envío) | 🔄 núcleo de huella y QR hecho en `backend/app/modules/verifactu/` (puntos `VERIFICAR` pendientes) |
+| 4 | Facturación, abonos y registro Verifactu (sin envío): cadena inmutable por empresa, QR, PDF; contrato en `docs/api-fase4.md`. Puntos `VERIFICAR` del núcleo en `backend/app/modules/verifactu/` a contrastar en el portal de pruebas de la AEAT (fase 7) | ✅ en `v1` |
 | 5 | Fórmulas y lotes con trazabilidad | pendiente |
 | 6 | IA (clave por empresa, asistente, pedidos por voz, propuesta de cargas) | pendiente |
 | 7 | Conector ERP y envío Verifactu a la AEAT | pendiente |
@@ -82,6 +82,8 @@ Pendiente fuera de las fases:
   `MSYS_NO_PATHCONV=1 docker run --rm -v "C:\\dev\\konygest\\frontend:/app" -w /app node:22-alpine sh -c "npx tsc --noEmit && npx eslint . --max-warnings 0 && npx vitest run"`.
 - WeasyPrint no carga en Windows sin GTK: los PDF se generan en Docker, CI y producción; en local
   los tests de PDF se saltan y la API responde 503 `PDF_UNAVAILABLE`.
+- Para probar PDF reales en local: `docker build -t konygest-api:faseN backend` y correr esa imagen
+  con `uvicorn` en el puerto 8001 apuntando a `host.docker.internal:5433`.
 - Si varios agentes ejecutan tests a la vez, cada uno usa su propia BD de test
   (`TEST_DATABASE_URL` / `TEST_DATABASE_APP_URL`, que `tests/conftest.py` admite) para no
   chocar en el truncado y las migraciones de `konygest_test`.

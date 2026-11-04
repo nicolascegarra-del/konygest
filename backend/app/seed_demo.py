@@ -19,7 +19,9 @@ camiones...) y un stock inicial, si la empresa aún no tiene artículos, y activ
 de los últimos días (entradas de báscula, órdenes de fabricación en todos los
 estados, ajustes, precios negociados y más clientes) si aún no tiene fabricación,
 y pedidos de los comerciales en todos los estados si aún no tiene pedidos, y una
-carga de camión en cada estado (con su salida de stock y albaranes) si no tiene cargas.
+carga de camión en cada estado (con su salida de stock y albaranes) si no tiene cargas,
+y facturas emitidas de los pedidos entregados (con su registro Verifactu encadenado), un
+abono parcial y un borrador si aún no tiene facturas.
 """
 
 import argparse
@@ -34,11 +36,16 @@ from sqlalchemy import func
 from sqlmodel import Session, col, select
 
 import app.models  # noqa: F401
+from app.core.catalog import PERMISSIONS, Scope
 from app.core.config import get_settings
 from app.core.db import new_session
+from app.core.deps import CurrentUser
 from app.core.security import hash_password, utcnow
 from app.core.sequence import next_number
 from app.modules.auth.service import MIN_PASSWORD_LENGTH
+from app.modules.invoicing import service as invoicing
+from app.modules.invoicing.models import Invoice, InvoiceLine
+from app.modules.invoicing.schemas import CreditLineIn
 from app.modules.logistics import service as logistics
 from app.modules.logistics.models import Load, LoadItem, LoadStatus, LoadStop
 from app.modules.masters.models import (
@@ -126,6 +133,10 @@ def main(password: str, reset_password: bool = False) -> None:
         else:
             count = seed_loads(db, tenant.id)
             print(f"Cargadas {count} cargas de demostración (una en cada estado).")
+        if db.exec(select(Invoice.id).where(Invoice.tenant_id == tenant.id)).first():
+            print("Las facturas de demostración ya existen.")
+        else:
+            print(seed_invoices(db, tenant.id))
         audit(
             db,
             "demo.cargar",
@@ -173,6 +184,7 @@ def _print_summary(db: Session, tenant_id: UUID) -> None:
         "clientes": db.exec(select(func.count()).where(Customer.tenant_id == tenant_id)),
         "pedidos": db.exec(select(func.count()).where(Order.tenant_id == tenant_id)),
         "cargas": db.exec(select(func.count()).where(Load.tenant_id == tenant_id)),
+        "facturas": db.exec(select(func.count()).where(Invoice.tenant_id == tenant_id)),
     }
     print("Datos: " + ", ".join(f"{n.one()} {label}" for label, n in counts.items()))
 
@@ -670,7 +682,7 @@ LOAD_ORDER_STATUS = {
 }
 
 
-def seed_loads(db: Session, tenant_id: UUID) -> int:
+def seed_loads(db: Session, tenant_id: UUID, loads: list | None = None) -> int:
     """Una carga en cada estado, coherente con pedidos, stock y numeración.
 
     Las planificadas y listas usan pedidos confirmados del seed (o los crea si no
@@ -742,7 +754,7 @@ def seed_loads(db: Session, tenant_id: UUID) -> int:
         return silo
 
     count = 0
-    for plate, driver_name, status, offset, notes, stops in LOADS:
+    for plate, driver_name, status, offset, notes, stops in LOADS if loads is None else loads:
         truck, driver = trucks.get(plate), drivers.get(driver_name)
         if truck is None or any(code not in customers for code, *_ in stops):
             continue
@@ -844,6 +856,144 @@ def seed_loads(db: Session, tenant_id: UUID) -> int:
         db.flush()
         count += 1
     return count
+
+
+# Carga entregada de hace unos días para tener pedidos que facturar (si faltan)
+INVOICE_LOADS = [
+    ("1234KLM", "Paco Martínez", LoadStatus.DELIVERED, -6, "",
+     [("C001", "P-CEB", 6000, "Silo 1"), ("C004", "P-LEC", 2000, "Silo único")]),
+]  # fmt: skip
+MIN_DELIVERED_ORDERS = 4
+COMPANY_FISCAL = {
+    "legal_name": "Piensos Demo S.L.",
+    "address": "Polígono Industrial Oeste, parcela 12",
+    "postal_code": "30169",
+    "city": "San Ginés",
+    "province": "Murcia",
+    "feed_registration": "αES30001234",
+}
+POSTAL_CODES = {
+    "Lorca": "30800",
+    "Cieza": "30530",
+    "Caravaca": "30400",
+    "Moratalla": "30440",
+    "Totana": "30850",
+    "La Paca": "30812",
+}
+
+
+def _office_user(db: Session, tenant_id: UUID) -> CurrentUser:
+    """Usuario de oficina con todos los permisos, para usar el servicio de facturación."""
+    office = (
+        db.exec(
+            select(User).where(
+                User.tenant_id == tenant_id, User.email == "oficina@demo.konygest.es"
+            )
+        ).first()
+        or db.exec(select(User).where(User.tenant_id == tenant_id)).first()
+    )
+    if office is None:
+        raise SystemExit("La empresa de demostración no tiene usuarios.")
+    return CurrentUser(
+        id=office.id,
+        email=office.email,
+        full_name=office.full_name,
+        tenant_id=tenant_id,
+        tenant_name=DEMO_TENANT,
+        platform_role=None,
+        permissions={code: Scope.ALL for code in PERMISSIONS},
+    )
+
+
+def seed_invoices(db: Session, tenant_id: UUID) -> str:
+    """Facturas de los pedidos entregados con el mismo servicio que la API: las de los
+    clientes con entregas más antiguas se emiten (números F correlativos, registro de alta
+    Verifactu encadenado, pedidos a «facturado»), la más reciente se abona en parte y el
+    último cliente queda en borrador. Sin PDF guardado: se genera la primera vez que se pide.
+
+    Completa antes los datos fiscales de la empresa y de los clientes si faltan, y crea
+    una carga entregada coherente con el stock si no hay bastantes pedidos entregados.
+    """
+    tenant = db.get(Tenant, tenant_id)
+    assert tenant is not None
+    if not tenant.tax_id:
+        tenant.tax_id = "B00000000"
+    for key, value in COMPANY_FISCAL.items():
+        if not getattr(tenant, key):
+            setattr(tenant, key, value)
+    db.add(tenant)
+    for customer in db.exec(select(Customer).where(Customer.tenant_id == tenant_id)).all():
+        if not customer.address and customer.city:
+            customer.address = f"Paraje de {customer.city} s/n"
+            customer.postal_code = customer.postal_code or POSTAL_CODES.get(customer.city, "")
+            db.add(customer)
+    db.flush()
+
+    def pending_orders() -> list[tuple[Order, date]]:
+        query = invoicing.pending_orders_query(None, None, None)
+        rows = db.exec(query.where(Order.tenant_id == tenant_id)).all()
+        return sorted(rows, key=lambda r: (r[1], r[0].number))
+
+    if len(pending_orders()) < MIN_DELIVERED_ORDERS:
+        seed_loads(db, tenant_id, INVOICE_LOADS)
+        db.flush()
+    groups: dict[UUID, list[tuple[Order, date]]] = {}
+    for order, delivered_on in pending_orders():
+        groups.setdefault(order.customer_id, []).append((order, delivered_on))
+    if not groups:
+        return "No hay pedidos entregados que facturar."
+
+    user = _office_user(db, tenant_id)
+    today = today_madrid()
+    customers = list(groups.values())
+    to_issue, to_draft = (customers[:-1], customers[-1]) if len(customers) > 1 else (customers, [])
+    issued: list[Invoice] = []
+    last_date: date | None = None
+    for group in to_issue:
+        orders = [o for o, _ in group]
+        day = min(max(d for _, d in group) + timedelta(days=1), today)
+        day = max(day, last_date) if last_date else day
+        invoice = invoicing.create_invoice(
+            db, user, orders[0].customer_id, [o.id for o in orders], day, ""
+        )
+        invoicing.issue(db, user, invoice, day, store_pdf=False)
+        issued.append(invoice)
+        last_date = day
+
+    summary = f"Cargadas {len(issued)} facturas emitidas de demostración"
+    if issued:
+        # Devolución de unos kilos de la primera línea de la última factura
+        target = issued[-1]
+        line = db.exec(
+            select(InvoiceLine)
+            .where(InvoiceLine.invoice_id == target.id)
+            .order_by(col(InvoiceLine.position))
+        ).first()
+        assert line is not None
+        returned = (Decimal(line.quantity_kg) / 10).quantize(Decimal(1))
+        credit = invoicing.create_credit_note(
+            db,
+            user,
+            target,
+            "R1",
+            "Devolución de pienso por silo lleno en la explotación",
+            False,
+            [CreditLineIn(invoice_line_id=line.id, quantity_kg=returned)],
+            today,
+            "",
+        )
+        invoicing.issue(db, user, credit, today, store_pdf=False)
+        summary += f", 1 abono parcial ({credit.number})"
+    if to_draft:
+        orders = [o for o, _ in to_draft]
+        invoicing.create_invoice(
+            db, user, orders[0].customer_id, [o.id for o in orders], today, "Pendiente de revisar"
+        )
+        summary += " y 1 borrador"
+    db.flush()
+    check = invoicing.verify(db, tenant_id)
+    state = "íntegra" if check.ok else "ROTA"
+    return f"{summary}; cadena Verifactu {state} ({check.records} registros)."
 
 
 def _parse_args(argv: list[str]) -> argparse.Namespace:
