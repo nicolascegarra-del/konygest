@@ -1,6 +1,8 @@
 import type { TenantStatus } from "@/types/api";
 import type { ItemKind, MovementKind, OrderStatus, PriceSource, SiloKind } from "@/types/fase1";
 import type { LinePriceSource, SalesOrderStatus } from "@/types/fase2";
+import type { DocumentKind, StorageProvider, StorageStatus } from "@/types/documents";
+import type { LoadStatus } from "@/types/fase3";
 
 export const TENANT_STATUS_LABELS: Record<TenantStatus, string> = {
   trial: "En prueba",
@@ -106,3 +108,56 @@ export const LINE_PRICE_SOURCE_VARIANTS: Record<LinePriceSource, BadgeVariant> =
   base: "outline",
   manual: "warning",
 };
+
+// ─── Cargas (fase 3) ───────────────────────────────
+
+export const LOAD_STATUS_LABELS: Record<LoadStatus, string> = {
+  planned: "Planificada",
+  ready: "Lista para cargar",
+  loaded: "Cargada",
+  delivered: "Entregada",
+  cancelled: "Cancelada",
+};
+
+export const LOAD_STATUS_VARIANTS: Record<LoadStatus, BadgeVariant> = {
+  planned: "outline",
+  ready: "warning",
+  loaded: "secondary",
+  delivered: "success",
+  cancelled: "destructive",
+};
+
+export const LOAD_STATUSES = Object.keys(LOAD_STATUS_LABELS) as LoadStatus[];
+
+// ─── Destino de documentos ─────────────────────────
+
+export const STORAGE_PROVIDER_LABELS: Record<StorageProvider, string> = {
+  platform: "Almacenamiento de Konygest",
+  google_drive: "Google Drive",
+  onedrive: "OneDrive / SharePoint",
+  smb: "Carpeta de red (SMB)",
+};
+
+export const STORAGE_STATUS_LABELS: Record<StorageStatus, string> = {
+  ok: "Funciona",
+  error: "Con errores",
+  not_configured: "Sin configurar",
+};
+
+export const STORAGE_STATUS_VARIANTS: Record<StorageStatus, BadgeVariant> = {
+  ok: "success",
+  error: "destructive",
+  not_configured: "outline",
+};
+
+export const DOCUMENT_KIND_LABELS: Record<DocumentKind, string> = {
+  delivery_note: "Albarán",
+  loading_order: "Orden de carga",
+  invoice: "Factura",
+  credit_note: "Abono",
+};
+
+/** Etiqueta de un tipo de documento; los tipos que aún no conoce el frontend se muestran tal cual. */
+export function documentKindLabel(kind: string): string {
+  return (DOCUMENT_KIND_LABELS as Record<string, string>)[kind] ?? kind;
+}

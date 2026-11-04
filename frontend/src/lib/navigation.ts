@@ -3,6 +3,7 @@ import {
   ArrowLeftRight,
   Bell,
   Boxes,
+  CalendarDays,
   Building,
   Building2,
   ClipboardCheck,
@@ -10,6 +11,7 @@ import {
   Contact,
   CreditCard,
   FilePlus2,
+  FolderCog,
   Factory,
   Gauge,
   Home,
@@ -18,6 +20,7 @@ import {
   Package,
   PackagePlus,
   Percent,
+  Scale,
   ShieldCheck,
   Tags,
   Tractor,
@@ -57,6 +60,13 @@ const TENANT_NAV: NavGroup[] = [
     ],
   },
   {
+    label: "Logística",
+    items: [
+      { href: "/logistica", label: "Planificación", icon: CalendarDays, permission: "logistica.ver", module: "logistica" },
+      { href: "/logistica/cargas", label: "Cargas", icon: Truck, permission: "logistica.ver", module: "logistica" },
+    ],
+  },
+  {
     label: "Maestros",
     items: [
       { href: "/maestros/clientes", label: "Clientes", icon: Contact, permission: "maestros.ver" },
@@ -78,6 +88,7 @@ const TENANT_NAV: NavGroup[] = [
       { href: "/fabrica/movimientos", label: "Movimientos", icon: ArrowLeftRight, permission: "stock.ver", module: "fabrica" },
       { href: "/fabrica/entradas", label: "Entradas de MP", icon: PackagePlus, permission: "stock.ver", module: "fabrica" },
       { href: "/fabrica/fabricacion", label: "Fabricación", icon: Factory, permission: "fabricacion.ver", module: "fabrica" },
+      { href: "/fabrica/cargas", label: "Cargas por pesar", icon: Scale, permission: "cargas.pesar", module: "logistica" },
     ],
   },
   {
@@ -88,6 +99,7 @@ const TENANT_NAV: NavGroup[] = [
       { href: "/ajustes/roles", label: "Roles y permisos", icon: UserCog, permission: "usuarios.ver" },
       { href: "/ajustes/avisos", label: "Avisos", icon: Bell, permission: "notificaciones.configurar" },
       { href: "/ajustes/email", label: "Correo saliente", icon: Mail, permission: "empresa.configurar" },
+      { href: "/ajustes/documentos", label: "Documentos", icon: FolderCog, permission: "empresa.configurar" },
       { href: "/ajustes/actividad", label: "Actividad", icon: Activity, permission: "auditoria.ver" },
     ],
   },
@@ -131,7 +143,7 @@ export function buildPlatformNav(): NavGroup[] {
 }
 
 function matchesPath(pathname: string, href: string): boolean {
-  if (href === "/admin" || href === "/inicio" || href === "/cuenta") return pathname === href;
+  if (href === "/admin" || href === "/inicio" || href === "/cuenta" || href === "/logistica") return pathname === href;
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 

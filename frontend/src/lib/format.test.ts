@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { formatKg, formatPlainDate, formatPrice, parseDecimal, toIsoDate } from "@/lib/format";
+import { formatBytes, formatKg, formatPlainDate, formatPrice, parseDecimal, toIsoDate } from "@/lib/format";
 
 // Intl usa espacio duro (U+00A0) entre la cifra y la unidad.
 const nbsp = (text: string) => text.replace(/ /g, " ");
@@ -69,5 +69,21 @@ describe("fechas sin hora", () => {
 
   it("toIsoDate usa la fecha local", () => {
     expect(toIsoDate(new Date(2026, 0, 5, 23, 30))).toBe("2026-01-05");
+  });
+});
+
+describe("formatBytes", () => {
+  it("usa base 1024, coma decimal y espacio duro", () => {
+    expect(formatBytes(0)).toBe("0 B");
+    expect(formatBytes(512)).toBe("512 B");
+    expect(formatBytes(1536)).toBe("1,5 KB");
+    expect(formatBytes(2.3 * 1024 * 1024)).toBe("2,3 MB");
+    expect(formatBytes(1500 * 1024 * 1024 * 1024)).toBe("1,5 TB");
+  });
+
+  it("devuelve «—» sin valor", () => {
+    expect(formatBytes(null)).toBe("—");
+    expect(formatBytes(undefined)).toBe("—");
+    expect(formatBytes(-1)).toBe("—");
   });
 });

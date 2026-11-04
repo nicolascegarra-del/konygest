@@ -148,3 +148,43 @@ describe("cliente API", () => {
     expect(fetchMock.mock.calls[0]?.[0]).toBe("/api/v1/users?offset=0&limit=25");
   });
 });
+
+describe("api.blob (PDF autenticado)", () => {
+  beforeEach(() => {
+    fetchMock.mockReset();
+    vi.stubGlobal("fetch", fetchMock);
+    useAuthStore.setState({ status: "authenticated", accessToken: "token-viejo", user: null, platformToken: null });
+    setAuthHooks({});
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("descarga con el Bearer, refresca ante un 401 y lee el nombre de Content-Disposition", async () => {
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(401, { error: { code: "INVALID_TOKEN", message: "caducado" } }))
+      .mockResolvedValueOnce(jsonResponse(200, { access_token: "token-nuevo" }))
+      .mockResolvedValueOnce(
+        new Response("%PDF-1.7", {
+          status: 200,
+          headers: { "Content-Type": "application/pdf", "Content-Disposition": 'inline; filename="CAR-2026-0001.pdf"' },
+        }),
+      );
+
+    const { blob, filename } = await api.blob("/loads/l-1/loading-order.pdf");
+
+    expect(filename).toBe("CAR-2026-0001.pdf");
+    expect(await blob.text()).toBe("%PDF-1.7");
+    expect(authHeaderOfCall(2)).toBe("Bearer token-nuevo");
+  });
+
+  it("convierte el 503 PDF_UNAVAILABLE en ApiError con mensaje claro", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(503, { error: { code: "PDF_UNAVAILABLE", message: "WeasyPrint no disponible" } }));
+
+    const error = await api.blob("/loads/l-1/loading-order.pdf").catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(ApiError);
+    expect(friendlyMessage(error)).toBe("No se pueden generar PDF en este servidor ahora mismo.");
+  });
+});

@@ -55,8 +55,8 @@ async function toApiError(response: Response): Promise<ApiError> {
   });
 }
 
-async function send(path: string, options: RequestOptions): Promise<Response> {
-  const headers: Record<string, string> = { Accept: "application/json" };
+async function send(path: string, options: RequestOptions, accept = "application/json"): Promise<Response> {
+  const headers: Record<string, string> = { Accept: accept };
   const token = useAuthStore.getState().accessToken;
   if (token) headers.Authorization = `Bearer ${token}`;
   if (options.body !== undefined) headers["Content-Type"] = "application/json";
@@ -104,13 +104,17 @@ export function refreshSession(): Promise<boolean> {
   return refreshInFlight;
 }
 
-export async function apiFetch<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  let response = await send(path, options);
+/**
+ * Envía la petición con el token en memoria y, ante un 401, refresca la sesión una vez y reintenta.
+ * Devuelve la respuesta correcta o lanza el `ApiError` del cuerpo de error estándar.
+ */
+async function authorizedSend(path: string, options: RequestOptions, accept?: string): Promise<Response> {
+  let response = await send(path, options, accept);
 
   if (response.status === 401 && !options.skipRefresh) {
     const refreshed = await refreshSession();
     if (refreshed) {
-      response = await send(path, options);
+      response = await send(path, options, accept);
     } else {
       useAuthStore.getState().clear();
       hooks.onSessionExpired?.();
@@ -122,9 +126,26 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
     if (error.code === "TWO_FACTOR_SETUP_REQUIRED") hooks.onTwoFactorSetupRequired?.();
     throw error;
   }
+  return response;
+}
 
+export async function apiFetch<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  const response = await authorizedSend(path, options);
   if (response.status === 204) return undefined as T;
   return (await response.json()) as T;
+}
+
+/**
+ * Descarga un fichero (PDF...) con el token de la sesión. El token va en memoria y no en una
+ * cookie, así que un `<a href>` directo no estaría autenticado.
+ * @returns El contenido y el nombre de fichero de `Content-Disposition` (si viene).
+ */
+export async function apiBlob(path: string, signal?: AbortSignal): Promise<{ blob: Blob; filename: string | null }> {
+  const response = await authorizedSend(path, { signal }, "application/pdf, application/octet-stream, application/json");
+  const disposition = response.headers.get("Content-Disposition") ?? "";
+  const match = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(disposition);
+  const filename = match?.[1] ? decodeURIComponent(match[1]) : null;
+  return { blob: await response.blob(), filename };
 }
 
 export const api = {
@@ -136,4 +157,5 @@ export const api = {
   patch: <T = void>(path: string, body?: unknown) => apiFetch<T>(path, { method: "PATCH", body }),
   delete: <T = void>(path: string, query?: Record<string, QueryValue>) =>
     apiFetch<T>(path, { method: "DELETE", query }),
+  blob: (path: string, signal?: AbortSignal) => apiBlob(path, signal),
 };

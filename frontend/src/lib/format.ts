@@ -127,3 +127,24 @@ export function decimalPlaces(value: number): number {
   if (text.includes("e-")) return Number(text.split("e-")[1] ?? 0);
   return text.split(".")[1]?.length ?? 0;
 }
+
+const bytesFormatter = new Intl.NumberFormat("es-ES", { maximumFractionDigits: 1, useGrouping: true });
+const BYTE_UNITS = ["B", "KB", "MB", "GB", "TB"] as const;
+
+/**
+ * Tamaño de fichero legible en es-ES (base 1024).
+ * @param value - Bytes.
+ * @returns Por ejemplo «512 B», «1,5 KB», «2,3 MB». «—» si no hay valor.
+ */
+export function formatBytes(value: number | null | undefined): string {
+  if (value === null || value === undefined || !Number.isFinite(value) || value < 0) return "—";
+  let size = value;
+  let unit = 0;
+  while (size >= 1024 && unit < BYTE_UNITS.length - 1) {
+    size /= 1024;
+    unit += 1;
+  }
+  const text = unit === 0 ? String(Math.round(size)) : bytesFormatter.format(size);
+  // Espacio duro: la cifra y la unidad no se separan al partir la línea.
+  return `${text} ${BYTE_UNITS[unit]}`;
+}

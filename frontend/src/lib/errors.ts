@@ -43,6 +43,13 @@ const FRIENDLY_MESSAGES: Record<string, string> = {
   INVALID_STATUS: "Ya no está en un estado que permita esta acción (puede que otra persona la haya cambiado). Recarga la página.",
   PRICE_REQUIRED: "El cliente no tiene precio para este pienso: indica el precio a mano.",
   CREDIT_LIMIT_EXCEEDED: "El pedido supera el riesgo (límite de crédito) del cliente.",
+  LOAD_DOES_NOT_FIT: "Los pedidos no caben en los compartimentos de este camión. Quita algún pedido o elige un camión más grande.",
+  COMPARTMENT_OVERFLOW: "Un compartimento supera su capacidad. Revisa los kilos repartidos.",
+  ORDER_NOT_PLANNABLE: "Ese pedido ya no se puede planificar: no está confirmado o ya va en otra carga. Recarga la lista de pendientes.",
+  NOT_CONNECTED: "Conecta primero la cuenta (botón «Conectar») antes de guardar este destino.",
+  STORAGE_CONNECTION_FAILED: "No se pudo conectar con el destino de los documentos. Revisa los datos y vuelve a probar.",
+  PROVIDER_NOT_CONFIGURED: "Este destino no está disponible en la plataforma ahora mismo. Contacta con Klyp.",
+  PDF_UNAVAILABLE: "No se pueden generar PDF en este servidor ahora mismo.",
   NETWORK_ERROR: "No hay conexión con el servidor. Comprueba tu red e inténtalo de nuevo.",
 };
 
@@ -62,4 +69,9 @@ export function friendlyMessage(error: unknown): string {
 
 export function isApiError(error: unknown, code?: string): error is ApiError {
   return error instanceof ApiError && (code === undefined || error.code === code);
+}
+
+/** Mensaje conocido para un código de error (p. ej. el `?error=` de una vuelta de OAuth), si lo hay. */
+export function messageForCode(code: string): string | undefined {
+  return FRIENDLY_MESSAGES[code];
 }
