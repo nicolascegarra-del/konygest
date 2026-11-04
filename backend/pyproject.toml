@@ -21,14 +21,20 @@ dependencies = [
     "pywebpush>=2.0",
     "packaging>=26.3",
     "tzdata>=2026.6",
+    "weasyprint>=70.0",
+    "jinja2>=3.1.6",
+    "boto3>=1.43.123",
+    "segno>=1.6.6",
+    "httpx>=0.28",
+    "smbprotocol>=1.15",
 ]
 
 [dependency-groups]
 dev = [
     "pytest>=8.3",
     "pytest-cov>=6.0",
-    "httpx>=0.28",
     "ruff>=0.8",
+    "pypdf>=6.21.4",
 ]
 
 [tool.ruff]

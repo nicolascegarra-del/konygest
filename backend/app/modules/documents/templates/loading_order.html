@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+{% block kind %}Orden de carga{% endblock %}
+{% block date %}Fecha de carga: <strong>{{ doc.load_date | fdate }}</strong>{% endblock %}
+{% block content %}
+<div class="grid">
+  <div class="box pale">
+    <p class="label">Camión</p>
+    <p class="value">{{ doc.transport.truck_plate }}</p>
+  </div>
+  <div class="box pale">
+    <p class="label">Transportista</p>
+    <p class="value">{{ doc.transport.carrier_name or "—" }}</p>
+  </div>
+  <div class="box pale">
+    <p class="label">Conductor</p>
+    <p class="value">{{ doc.transport.driver_name or "—" }}</p>
+  </div>
+  <div class="box pale">
+    <p class="label">Paradas · Kg a cargar</p>
+    <p class="value">{{ stops | length }} · {{ total_kg | kg }}</p>
+  </div>
+</div>
+
+<div class="section">
+  <h2>Compartimentos</h2>
+  <table>
+    <thead>
+      <tr>
+        <th class="center" style="width: 9mm">Nº</th>
+        <th class="num" style="width: 24mm">Capacidad</th>
+        <th>Pienso</th>
+        <th class="num" style="width: 24mm">Kg</th>
+        <th>Cliente</th>
+        <th class="center" style="width: 14mm">Parada</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in compartments %}
+      <tr>
+        <td class="center strong">{{ row.number }}</td>
+        <td class="num">{{ row.capacity_kg | kg }}</td>
+        {% if row.line %}
+        <td><strong>{{ row.line.item_code }}</strong> · {{ row.line.item_name }}</td>
+        <td class="num strong">{{ row.line.quantity_kg | kg }}</td>
+        <td>{{ row.customer_name }}</td>
+        <td class="center">{{ row.stop_sequence }}</td>
+        {% else %}
+        <td class="muted" colspan="4">Vacío</td>
+        {% endif %}
+      </tr>
+      {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr>
+        <td></td>
+        <td class="num">{{ capacity_kg | kg }}</td>
+        <td>Total</td>
+        <td class="num">{{ total_kg | kg }}</td>
+        <td colspan="2"></td>
+      </tr>
+    </tfoot>
+  </table>
+</div>
+
+<h2>Paradas en orden de descarga</h2>
+{% for stop, stop_lines in stops %}
+<div class="section" style="page-break-inside: avoid">
+  <div class="grid" style="margin: 4px 0">
+    <div class="box">
+      <p class="label">Parada {{ stop.sequence }} · Pedido</p>
+      <p class="value">{{ stop.order_number }}</p>
+    </div>
+    <div class="box" style="flex: 2">
+      <p class="label">Cliente</p>
+      <p class="value">{{ stop.party.customer_name }} <span class="muted small">({{ stop.party.customer_code }})</span></p>
+    </div>
+    <div class="box" style="flex: 2">
+      <p class="label">Explotación</p>
+      <p class="value">{{ stop.party.farm_name }}{% if stop.party.farm_rega %} · REGA {{ stop.party.farm_rega }}{% endif %}</p>
+      {% if stop.party.farm_address %}<p class="small">{{ stop.party.farm_address }}</p>{% endif %}
+    </div>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th class="center" style="width: 11mm">Comp.</th>
+        <th>Pienso</th>
+        <th style="width: 20mm">Silo dest.</th>
+        <th class="num" style="width: 22mm">Kg previstos</th>
+        <th style="width: 24mm">Silo fábrica</th>
+        <th style="width: 24mm">Lote</th>
+        <th style="width: 22mm">Kg reales</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for line in stop_lines %}
+      <tr>
+        <td class="center strong">{{ line.compartment or "—" }}</td>
+        <td><strong>{{ line.item_code }}</strong> · {{ line.item_name }}</td>
+        <td>{{ line.farm_silo }}</td>
+        <td class="num">{{ line.quantity_kg | kg }}</td>
+        <td>{% if line.factory_silo %}{{ line.factory_silo }}{% else %}<span class="write"></span>{% endif %}</td>
+        <td>{% if line.lot %}{{ line.lot }}{% else %}<span class="write"></span>{% endif %}</td>
+        <td><span class="write"></span></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endfor %}
+
+{% if doc.notes %}
+<div class="section">
+  <h2>Observaciones</h2>
+  <p class="notes">{{ doc.notes }}</p>
+</div>
+{% endif %}
+
+<div class="signatures">
+  <div class="signature">
+    <p class="label">Cargado por</p>
+    <p class="field">Nombre</p>
+    <p class="field">Fecha y hora</p>
+    <div class="sign-area"></div>
+    <p class="small muted">Firma</p>
+  </div>
+  <div class="signature">
+    <p class="label">Pesada</p>
+    <p class="field">Bruto (kg)</p>
+    <p class="field">Tara (kg)</p>
+    <p class="field">Neto (kg)</p>
+  </div>
+</div>
+{% endblock %}

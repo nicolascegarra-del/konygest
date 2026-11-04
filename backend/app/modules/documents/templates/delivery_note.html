@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% block kind %}Albarán · Documento de acompañamiento{% endblock %}
+{% block date %}{{ doc.issued_at | fdate }} · {{ doc.issued_at | ftime }} h{% endblock %}
+{% block content %}
+<div class="grid">
+  <div class="box pale">
+    <p class="label">Carga</p>
+    <p class="value">{{ doc.load_number }}</p>
+  </div>
+  <div class="box pale">
+    <p class="label">Pedido</p>
+    <p class="value">{{ doc.order_number }}</p>
+  </div>
+  <div class="box pale">
+    <p class="label">Fecha y hora de expedición</p>
+    <p class="value">{{ doc.issued_at | fdate }} {{ doc.issued_at | ftime }}</p>
+  </div>
+</div>
+
+<div class="grid">
+  <div class="box">
+    <h2>Expedidor</h2>
+    <p class="strong">{{ doc.company.name }}</p>
+    {% if doc.company.tax_id %}<p>NIF: {{ doc.company.tax_id }}</p>{% endif %}
+    {% if doc.company.address %}<p>{{ doc.company.address }}</p>{% endif %}
+    {% if doc.company.registration %}<p>Nº registro: {{ doc.company.registration }}</p>{% endif %}
+  </div>
+  <div class="box">
+    <h2>Destinatario</h2>
+    <p class="strong">{{ doc.party.customer_name }} <span class="muted small">({{ doc.party.customer_code }})</span></p>
+    {% if doc.party.customer_tax_id %}<p>NIF: {{ doc.party.customer_tax_id }}</p>{% endif %}
+    <p>Explotación: <strong>{{ doc.party.farm_name }}</strong></p>
+    {% if doc.party.farm_rega %}<p>REGA: <strong>{{ doc.party.farm_rega }}</strong></p>{% endif %}
+    {% if doc.party.farm_address %}<p>{{ doc.party.farm_address }}</p>{% endif %}
+  </div>
+  <div class="box">
+    <h2>Transporte</h2>
+    <p>Matrícula: <strong>{{ doc.transport.truck_plate }}</strong></p>
+    <p>Transportista: {{ doc.transport.carrier_name or "—" }}</p>
+    <p>Conductor: {{ doc.transport.driver_name or "—" }}</p>
+  </div>
+</div>
+
+<div class="section">
+  <h2>Productos entregados</h2>
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 20mm">Código</th>
+        <th>Pienso</th>
+        <th style="width: 26mm">Lote</th>
+        <th class="center" style="width: 12mm">Comp.</th>
+        <th style="width: 20mm">Silo dest.</th>
+        <th class="num" style="width: 24mm">Kg</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for line in lines %}
+      <tr>
+        <td class="strong">{{ line.item_code }}</td>
+        <td>{{ line.item_name }}</td>
+        <td>{{ line.lot or "—" }}</td>
+        <td class="center">{{ line.compartment or "—" }}</td>
+        <td>{{ line.farm_silo or "—" }}</td>
+        <td class="num">{{ line.quantity_kg | kg }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr>
+        <td colspan="5" class="num">Total</td>
+        <td class="num">{{ total_kg | kg }}</td>
+      </tr>
+    </tfoot>
+  </table>
+</div>
+
+{% if doc.gross_kg is not none or doc.tare_kg is not none %}
+<div class="grid">
+  <div class="box pale">
+    <p class="label">Peso bruto</p>
+    <p class="value">{{ doc.gross_kg | kg if doc.gross_kg is not none else "—" }}</p>
+  </div>
+  <div class="box pale">
+    <p class="label">Tara</p>
+    <p class="value">{{ doc.tare_kg | kg if doc.tare_kg is not none else "—" }}</p>
+  </div>
+  <div class="box pale">
+    <p class="label">Peso neto (camión completo)</p>
+    <p class="value">{{ net_kg | kg if net_kg is not none else "—" }}</p>
+  </div>
+</div>
+{% endif %}
+
+{% if doc.notes %}
+<div class="section">
+  <h2>Observaciones</h2>
+  <p class="notes">{{ doc.notes }}</p>
+</div>
+{% endif %}
+
+<div class="signatures">
+  <div class="signature">
+    <p class="label">Conductor</p>
+    <p class="field">Nombre</p>
+    <p class="field">DNI</p>
+    <p class="field">Fecha</p>
+    <div class="sign-area"></div>
+    <p class="small muted">Firma</p>
+  </div>
+  <div class="signature">
+    <p class="label">Recibí (receptor)</p>
+    <p class="field">Nombre</p>
+    <p class="field">DNI</p>
+    <p class="field">Fecha</p>
+    <div class="sign-area"></div>
+    <p class="small muted">Firma</p>
+  </div>
+</div>
+{% endblock %}

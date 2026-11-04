@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>{{ title }} {{ doc.number }}</title>
+<style>
+  @page {
+    size: A4;
+    margin: 14mm 13mm 16mm 13mm;
+    /* Elemento HTML en vez de texto CSS: así el contenido va escapado como HTML */
+    @bottom-left { content: element(page-footer); }
+    @bottom-right {
+      content: "Página " counter(page) " de " counter(pages);
+      font-size: 7.5pt; color: #6B7280;
+    }
+  }
+  .page-footer { position: running(page-footer); font-size: 7.5pt; color: #6B7280; }
+  * { box-sizing: border-box; }
+  html { font-family: "DejaVu Sans", "Liberation Sans", Arial, Helvetica, sans-serif;
+         font-size: 8.8pt; color: #374151; line-height: 1.32; }
+  body { margin: 0; }
+  h2 { font-size: 9.5pt; color: #051937; text-transform: uppercase; letter-spacing: .04em;
+       margin: 0 0 4px 0; padding-bottom: 2px; border-bottom: 1.5px solid #2E6DB4; }
+  p { margin: 0; }
+  .muted { color: #6B7280; }
+  .small { font-size: 7.5pt; }
+  .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .center { text-align: center; }
+  .strong { font-weight: bold; color: #051937; }
+
+  /* Cabecera */
+  .header { display: flex; justify-content: space-between; align-items: stretch;
+            border-bottom: 3px solid #051937; padding-bottom: 6px; margin-bottom: 8px; }
+  .company .name { font-size: 13pt; font-weight: bold; color: #051937; }
+  .company p { font-size: 8pt; }
+  .doc-id { text-align: right; }
+  .doc-id .kind { font-size: 9pt; text-transform: uppercase; letter-spacing: .08em;
+                  color: #2E6DB4; font-weight: bold; }
+  .doc-id .number { font-size: 20pt; font-weight: bold; color: #051937; line-height: 1.1; }
+  .doc-id .date { font-size: 9.5pt; color: #051937; }
+
+  /* Bloques */
+  .grid { display: flex; gap: 8px; margin-bottom: 8px; }
+  .grid > .box { flex: 1; }
+  .box { border: 1px solid #E8EDF5; border-radius: 4px; padding: 5px 7px; }
+  .box.pale { background: #E8EDF5; border-color: #E8EDF5; }
+  .box .label { font-size: 7pt; text-transform: uppercase; letter-spacing: .05em; color: #6B7280; }
+  .box .value { font-weight: bold; color: #051937; }
+  .section { margin-bottom: 9px; }
+
+  /* Tablas */
+  table { width: 100%; border-collapse: collapse; }
+  th { background: #051937; color: #FFFFFF; font-weight: bold; font-size: 7.5pt;
+       text-transform: uppercase; letter-spacing: .03em; padding: 3.5px 5px; text-align: left;
+       white-space: nowrap; }
+  td { padding: 3.5px 5px; border-bottom: 1px solid #E8EDF5; vertical-align: top; }
+  tr:nth-child(even) td { background: #F6F8FB; }
+  tfoot td { font-weight: bold; color: #051937; border-top: 1.5px solid #051937;
+             border-bottom: none; background: none !important; }
+  tr { page-break-inside: avoid; }
+  .write { border-bottom: 1px solid #6B7280; min-width: 20mm; height: 5mm; display: block; }
+
+  /* Firmas */
+  .signatures { display: flex; gap: 10px; margin-top: 10px; page-break-inside: avoid; }
+  .signature { flex: 1; border: 1px solid #6B7280; border-radius: 4px; padding: 5px 7px; }
+  .signature .label { font-size: 7.5pt; text-transform: uppercase; color: #051937; font-weight: bold; }
+  .signature .field { font-size: 7.5pt; color: #6B7280; border-bottom: 1px dotted #6B7280;
+                      padding-top: 9px; }
+  .signature .sign-area { height: 18mm; }
+  .notes { white-space: pre-line; }
+</style>
+</head>
+<body>
+<div class="page-footer">{{ doc.company.name }} · {{ title }} {{ doc.number }}</div>
+<div class="header">
+  <div class="company">
+    <p class="name">{{ doc.company.name }}</p>
+    {% if doc.company.tax_id %}<p>NIF: {{ doc.company.tax_id }}</p>{% endif %}
+    {% if doc.company.address %}<p>{{ doc.company.address }}</p>{% endif %}
+    {% if doc.company.registration %}<p>Nº registro: {{ doc.company.registration }}</p>{% endif %}
+  </div>
+  <div class="doc-id">
+    <p class="kind">{% block kind %}{{ title }}{% endblock %}</p>
+    <p class="number">{{ doc.number }}</p>
+    <p class="date">{% block date %}{% endblock %}</p>
+  </div>
+</div>
+{% block content %}{% endblock %}
+</body>
+</html>

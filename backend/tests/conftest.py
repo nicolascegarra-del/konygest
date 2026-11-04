@@ -7,6 +7,7 @@ Las URLs salen de TEST_DATABASE_URL / TEST_DATABASE_APP_URL o, si no están, del
 
 import os
 import re
+import tempfile
 from collections.abc import Callable, Iterator
 from pathlib import Path
 
@@ -41,6 +42,9 @@ os.environ["EMAIL_BACKEND"] = "memory"
 os.environ["REDIS_URL"] = ""
 os.environ["APP_ENV"] = "test"
 os.environ["APP_URL"] = "http://testserver"
+# Ficheros (albaranes...) en una carpeta temporal propia de esta ejecución
+os.environ["STORAGE_BACKEND"] = "local"
+os.environ["STORAGE_LOCAL_PATH"] = tempfile.mkdtemp(prefix="konygest-storage-")
 
 import pyotp  # noqa: E402
 import pytest  # noqa: E402
