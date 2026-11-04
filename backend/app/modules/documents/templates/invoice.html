@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+{% block kind %}{% if credit_note %}Factura rectificativa (abono){% else %}Factura{% endif %}{% endblock %}
+{% block date %}Fecha de expedición: <strong>{{ doc.issue_date | fdate }}</strong><br>
+<span class="small">Tipo {{ doc.invoice_type }}{% if type_label %} · {{ type_label }}{% endif %}</span>{% endblock %}
+{% block content %}
+<style>
+  /* Estilos propios de la factura (base.html no tiene bloque en <head>) */
+  .top { display: flex; gap: 8px; margin-bottom: 8px; align-items: stretch; }
+  .top > .box { flex: 1; }
+  .top .data p { display: flex; justify-content: space-between; gap: 6px; }
+  .top .data p span:first-child { color: #6B7280; white-space: nowrap; }
+  .top .data p span:last-child { font-weight: bold; color: #051937; text-align: right; }
+  /* QR: 6 mm de blanco alrededor (recomendación AEAT); el SVG trae su tamaño en mm */
+  .qr { flex: 0 0 auto !important; text-align: center; border: 1px solid #E8EDF5;
+        border-radius: 4px; padding: 3mm 4mm; background: #FFFFFF; }
+  .qr .qr-label { font-size: 9pt; font-weight: bold; color: #051937; }
+  .qr svg { display: block; margin: 1mm auto; }
+  .rectify { border-left: 3px solid #2E6DB4; background: #E8EDF5; padding: 5px 8px;
+             margin-bottom: 8px; }
+  .rectify .strong { font-size: 9.5pt; }
+  .lines td { font-size: 8.2pt; }
+  .lines tr.sum td { font-weight: bold; color: #051937; border-top: 1.5px solid #051937;
+                     border-bottom: none; background: none; }
+  .lines .ref { font-size: 7.3pt; color: #6B7280; white-space: nowrap; }
+  .totals-row { display: flex; gap: 10px; align-items: flex-start; margin-top: 8px;
+                page-break-inside: avoid; }
+  .totals-row .breakdown { flex: 1; }
+  .totals { flex: 0 0 72mm; border: 1.5px solid #051937; border-radius: 4px; }
+  .totals p { display: flex; justify-content: space-between; padding: 3px 7px;
+              border-bottom: 1px solid #E8EDF5; }
+  .totals p span:last-child { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .totals .grand { background: #051937; color: #FFFFFF; font-size: 12pt; font-weight: bold;
+                   border-bottom: none; padding: 5px 7px; }
+  .payment { display: flex; gap: 8px; margin-top: 8px; page-break-inside: avoid; }
+  .payment > .box { flex: 1; }
+  .cancelled-band { background: #B91C1C; color: #FFFFFF; font-weight: bold; text-align: center;
+                    letter-spacing: .3em; font-size: 11pt; padding: 3px; margin-bottom: 8px; }
+  /* position: fixed se repite en todas las páginas */
+  .watermark { position: fixed; top: 105mm; left: 0; right: 0; text-align: center;
+               font-size: 80pt; font-weight: bold; color: rgba(185, 28, 28, .13);
+               transform: rotate(-35deg); letter-spacing: .1em; z-index: 10; }
+</style>
+
+{% if doc.cancelled %}
+<div class="watermark">ANULADA</div>
+<div class="cancelled-band">ANULADA</div>
+{% endif %}
+
+<div class="top">
+  <div class="box">
+    <h2>Destinatario</h2>
+    <p class="strong">{{ doc.customer.name }} <span class="muted small">({{ doc.customer.code }})</span></p>
+    {% if doc.customer.tax_id %}<p>NIF: <strong>{{ doc.customer.tax_id }}</strong></p>{% endif %}
+    {% if doc.customer.address %}<p>{{ doc.customer.address }}</p>{% endif %}
+    {% if customer_city %}<p>{{ customer_city }}</p>{% endif %}
+  </div>
+  <div class="box data">
+    <h2>Datos de la factura</h2>
+    <p><span>Número</span><span>{{ doc.number }}</span></p>
+    <p><span>Fecha de expedición</span><span>{{ doc.issue_date | fdate }}</span></p>
+    <p><span>Tipo</span><span>{{ doc.invoice_type }}</span></p>
+    {% if doc.period_from or doc.period_to %}
+    <p><span>Periodo</span><span>{{ doc.period_from | fdate }} – {{ doc.period_to | fdate }}</span></p>
+    {% endif %}
+    {% if doc.rectified_number %}<p><span>Rectifica a</span><span>{{ doc.rectified_number }}</span></p>{% endif %}
+    <p><span>Total</span><span>{{ doc.total | money }}</span></p>
+  </div>
+  <div class="qr">
+    <p class="qr-label">QR tributario:</p>
+    {{ doc.qr_svg | safe }}
+    <p class="qr-label">{{ doc.verifactu_label }}</p>
+  </div>
+</div>
+
+{% if credit_note %}
+<div class="rectify">
+  <p class="strong">Rectifica a la factura {{ doc.rectified_number or "—" }}{% if doc.rectified_issue_date %} de {{ doc.rectified_issue_date | fdate }}{% endif %}</p>
+  {% if doc.rectification_reason %}<p>Motivo: {{ doc.rectification_reason }}</p>{% endif %}
+  <p class="small muted">Factura rectificativa por diferencias: los importes indicados son la diferencia respecto a la factura rectificada.</p>
+</div>
+{% endif %}
+
+<div class="section">
+  <h2>Detalle</h2>
+  <table class="lines">
+    <thead>
+      <tr>
+        <th style="width: 27mm">Albarán · Entrega</th>
+        <th style="width: 16mm">Código</th>
+        <th>Descripción</th>
+        <th class="num" style="width: 21mm">Kg</th>
+        <th class="num" style="width: 16mm">€/kg</th>
+        <th class="num" style="width: 11mm">IVA</th>
+        {% if has_surcharge %}<th class="num" style="width: 11mm">RE</th>{% endif %}
+        <th class="num" style="width: 24mm">Importe</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for line in doc.lines %}
+      <tr>
+        <td class="ref">{{ line.delivery_note_number or "—" }}{% if line.delivery_date %}<br>{{ line.delivery_date | fdate }}{% endif %}</td>
+        <td class="strong">{{ line.item_code or "—" }}</td>
+        <td>{{ line.description }}</td>
+        <td class="num">{{ line.quantity_kg | kg }}</td>
+        <td class="num">{{ line.unit_price | price }}</td>
+        <td class="num">{{ line.vat_rate | pct }}</td>
+        {% if has_surcharge %}<td class="num">{{ line.surcharge_rate | pct if line.surcharge_rate else "—" }}</td>{% endif %}
+        <td class="num">{{ line.amount | money }}</td>
+      </tr>
+      {% endfor %}
+      {# Fila de totales en el cuerpo y no en <tfoot>: WeasyPrint repetiría el pie en cada página #}
+      <tr class="sum">
+        <td colspan="3" class="num">Total kg</td>
+        <td class="num">{{ doc.total_kg | kg }}</td>
+        <td colspan="{{ 3 if has_surcharge else 2 }}" class="num">Base</td>
+        <td class="num">{{ doc.taxable_base | money }}</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="totals-row">
+  <div class="breakdown">
+    <h2>Desglose de impuestos</h2>
+    <table>
+      <thead>
+        <tr>
+          <th class="num">Tipo IVA</th>
+          <th class="num">Base imponible</th>
+          <th class="num">Cuota IVA</th>
+          {% if has_surcharge %}
+          <th class="num">Tipo RE</th>
+          <th class="num">Recargo</th>
+          {% endif %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for tax in doc.tax_breakdown %}
+        <tr>
+          <td class="num">{{ tax.vat_rate | pct }}</td>
+          <td class="num">{{ tax.base | money }}</td>
+          <td class="num">{{ tax.vat | money }}</td>
+          {% if has_surcharge %}
+          <td class="num">{{ tax.surcharge_rate | pct if tax.surcharge_rate else "—" }}</td>
+          <td class="num">{{ tax.surcharge | money if tax.surcharge else "—" }}</td>
+          {% endif %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="totals">
+    <p><span>Base imponible</span><span>{{ doc.taxable_base | money }}</span></p>
+    <p><span>Cuota de IVA</span><span>{{ doc.vat_amount | money }}</span></p>
+    {% if doc.surcharge_amount %}
+    <p><span>Recargo de equivalencia</span><span>{{ doc.surcharge_amount | money }}</span></p>
+    {% endif %}
+    <p class="grand"><span>TOTAL</span><span>{{ doc.total | money }}</span></p>
+  </div>
+</div>
+
+{% if doc.due_dates or doc.payment_method %}
+<div class="payment">
+  <div class="box">
+    <h2>Forma de pago</h2>
+    <p class="strong">{{ doc.payment_method or "—" }}</p>
+  </div>
+  {% if doc.due_dates %}
+  <div class="box">
+    <h2>Vencimientos</h2>
+    <table>
+      <tbody>
+        {% for due_date, amount in doc.due_dates %}
+        <tr>
+          <td>{{ due_date | fdate }}</td>
+          <td class="num">{{ amount | money }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
+{% if doc.notes %}
+<div class="section" style="margin-top: 8px">
+  <h2>Observaciones</h2>
+  <p class="notes">{{ doc.notes }}</p>
+</div>
+{% endif %}
+{% endblock %}

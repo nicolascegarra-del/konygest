@@ -9,7 +9,7 @@ API pública que usan los demás módulos (no importar los submódulos directame
 - `fetch(db, tenant_id, kind, number, regenerate) -> bytes`: lee de donde se guardó; si no
   está o el destino no responde, llama a `regenerate()`, lo vuelve a guardar y lo devuelve.
 - `stored_numbers(db, tenant_id, kind, numbers) -> set[str]`: qué números tienen fichero.
-- `render_loading_order(data) -> bytes` y `render_delivery_note(data) -> bytes`: PDF.
+- `render_loading_order(data)`, `render_delivery_note(data)` y `render_invoice(data)` -> bytes: PDF.
   Lanzan `PdfUnavailableError` si WeasyPrint no puede cargarse (p. ej. Windows sin GTK);
   quien los llama responde 503 `PDF_UNAVAILABLE`.
 - `storage`: almacenamiento de Konygest por clave (uso interno y tests).
@@ -19,6 +19,7 @@ from app.modules.documents.models import StoredDocument
 from app.modules.documents.pdf import (
     PdfUnavailableError,
     render_delivery_note,
+    render_invoice,
     render_loading_order,
 )
 from app.modules.documents.providers.base import StorageProviderError
@@ -32,6 +33,7 @@ __all__ = [
     "StoredDocument",
     "fetch",
     "render_delivery_note",
+    "render_invoice",
     "render_loading_order",
     "storage",
     "store",

@@ -12,13 +12,22 @@ from typing import Any
 import pytest
 from botocore.exceptions import ClientError
 
-from app.modules.documents import PdfUnavailableError, render_delivery_note, render_loading_order
+from app.modules.documents import (
+    PdfUnavailableError,
+    render_delivery_note,
+    render_invoice,
+    render_loading_order,
+)
 from app.modules.documents import storage as public_storage
 from app.modules.documents.pdf import (
     format_date,
     format_kg,
+    format_money,
+    format_percent,
+    format_price,
     format_time,
     render_delivery_note_html,
+    render_invoice_html,
     render_loading_order_html,
 )
 from app.modules.documents.storage import (
@@ -32,11 +41,16 @@ from app.modules.documents.types import (
     CompanyInfo,
     DeliveryNoteData,
     DocLine,
+    InvoiceCustomerDoc,
+    InvoiceData,
+    InvoiceLineDoc,
     LoadingOrderData,
     LoadingOrderStop,
     PartyInfo,
+    TaxBreakdownDoc,
     TransportInfo,
 )
+from app.modules.verifactu.qr import qr_svg, qr_url
 
 KEY = "6f1c2d3e-0000-4000-8000-000000000001/albaranes/ALB-2026-0001.pdf"
 
@@ -434,3 +448,260 @@ def test_pdf_con_contenido_malicioso_se_genera_escapado():
     pdf = pdf_or_skip(render_delivery_note, delivery_note(party=party, notes=evil))
     assert pdf.startswith(b"%PDF")
     assert "<script>alert(1)</script>" in pdf_text(pdf)  # se pinta como texto
+
+
+# ─── Factura y abono ───────────────────────────────────────────────────────────
+
+CUSTOMER = InvoiceCustomerDoc(
+    code="C0001",
+    name="Granja Los Olivos S.L.",
+    tax_id="B87654321",
+    address="Camino del Monte s/n",
+    postal_code="50600",
+    city="Ejea de los Caballeros",
+    province="Zaragoza",
+)
+
+
+def invoice(lines_count: int = 3, **overrides: Any) -> InvoiceData:
+    lines = [
+        InvoiceLineDoc(
+            description=f"Cebo cerdos {i} · Albarán ALB-2026-{i:04d}",
+            quantity_kg=Decimal("12500"),
+            unit_price=Decimal("0.3125"),
+            vat_rate=Decimal("10"),
+            amount=Decimal("3906.25"),
+            item_code=f"P{i:03d}",
+            delivery_note_number=f"ALB-2026-{i:04d}",
+            delivery_date=date(2026, 10, i % 28 + 1),
+        )
+        for i in range(1, lines_count + 1)
+    ]
+    base = Decimal("3906.25") * lines_count
+    vat = (base * Decimal("0.10")).quantize(Decimal("0.01"))
+    values: dict[str, Any] = {
+        "company": COMPANY,
+        "kind": "invoice",
+        "number": "F-2026-0001",
+        "invoice_type": "F1",
+        "issue_date": date(2026, 11, 4),
+        "customer": CUSTOMER,
+        "lines": lines,
+        "tax_breakdown": [TaxBreakdownDoc(Decimal("10"), base, vat)],
+        "taxable_base": base,
+        "vat_amount": vat,
+        "surcharge_amount": Decimal(0),
+        "total": base + vat,
+        "total_kg": Decimal("12500") * lines_count,
+        "payment_method": "Transferencia 30 días",
+        "due_dates": [(date(2026, 12, 4), base + vat)],
+        "period_from": date(2026, 10, 1),
+        "period_to": date(2026, 10, 31),
+        "notes": "Gracias por su confianza.",
+    }
+    values.update(overrides)
+    url = qr_url("B12345678", values["number"], values["issue_date"], values["total"])
+    values.setdefault("qr_url", url)
+    values.setdefault("qr_svg", qr_svg(url))
+    return InvoiceData(**values)
+
+
+def credit_note(**overrides: Any) -> InvoiceData:
+    values: dict[str, Any] = {
+        "kind": "credit_note",
+        "number": "R-2026-0001",
+        "invoice_type": "R1",
+        "issue_date": date(2026, 11, 10),
+        "lines": [
+            InvoiceLineDoc(
+                description="Cebo cerdos · devolución",
+                quantity_kg=Decimal("-1000"),
+                unit_price=Decimal("0.3125"),
+                vat_rate=Decimal("10"),
+                amount=Decimal("-312.50"),
+                item_code="P001",
+                delivery_note_number="ALB-2026-0001",
+                delivery_date=date(2026, 10, 2),
+                surcharge_rate=Decimal("1.4"),
+            )
+        ],
+        "tax_breakdown": [
+            TaxBreakdownDoc(
+                Decimal("10"),
+                Decimal("-312.50"),
+                Decimal("-31.25"),
+                Decimal("1.4"),
+                Decimal("-4.38"),
+            )
+        ],
+        "taxable_base": Decimal("-312.50"),
+        "vat_amount": Decimal("-31.25"),
+        "surcharge_amount": Decimal("-4.38"),
+        "total": Decimal("-348.13"),
+        "total_kg": Decimal("-1000"),
+        "due_dates": [],
+        "period_from": None,
+        "period_to": None,
+        "rectified_number": "F-2026-0001",
+        "rectified_issue_date": date(2026, 11, 4),
+        "rectification_reason": "Devolución de 1.000 kg en mal estado",
+    }
+    values.update(overrides)
+    return invoice(**values)
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        (Decimal("1234.56"), "1.234,56 €"),
+        (Decimal("1234567.5"), "1.234.567,50 €"),
+        (Decimal("-348.13"), "-348,13 €"),
+        (Decimal("0.005"), "0,01 €"),
+        (Decimal("-0.001"), "0,00 €"),
+        (0, "0,00 €"),
+        (12, "12,00 €"),
+        (None, ""),
+    ],
+)
+def test_format_money_formato_espanol(value, expected):
+    assert format_money(value) == expected
+
+
+def test_format_money_sin_unidad():
+    assert format_money(Decimal("1234.5"), unit=False) == "1.234,50"
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        (Decimal("0.3"), "0,30"),
+        (Decimal("0.3125"), "0,3125"),
+        (Decimal("0.31255"), "0,3126"),
+        (Decimal("1250"), "1.250,00"),
+        (None, ""),
+    ],
+)
+def test_format_price_entre_2_y_4_decimales(value, expected):
+    assert format_price(value) == expected
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        (Decimal("21"), "21 %"),
+        (Decimal("21.00"), "21 %"),
+        (Decimal("5.20"), "5,2 %"),
+        (Decimal("1.75"), "1,75 %"),
+        (0, "0 %"),
+        (None, ""),
+    ],
+)
+def test_format_percent(value, expected):
+    assert format_percent(value) == expected
+
+
+def test_html_factura_muestra_los_datos():
+    data = invoice()
+    html = render_invoice_html(data)
+    for expected in [
+        "F-2026-0001",
+        "Factura",
+        "Piensos del Norte S.L.",
+        "B12345678",
+        "B87654321",
+        "Granja Los Olivos S.L.",
+        "50600 Ejea de los Caballeros (Zaragoza)",
+        "04/11/2026",
+        "F1",
+        "01/10/2026 – 31/10/2026",
+        "Transferencia 30 días",
+        "04/12/2026",
+        "ALB-2026-0001",
+        "12.500 kg",
+        "37.500 kg",
+        "0,3125",
+        "10 %",
+        "3.906,25 €",
+        "11.718,75 €",  # base
+        "1.171,88 €",  # IVA
+        "12.890,63 €",  # total
+        "QR tributario:",
+        "VERI*FACTU",
+        "Gracias por su confianza.",
+    ]:
+        assert expected in html, expected
+    assert data.qr_svg in html  # el SVG tal cual, sin escapar
+    assert "<svg" in html
+    assert "Rectifica a la factura" not in html
+    assert "ANULADA" not in html
+    assert "Recargo de equivalencia" not in html
+
+
+def test_html_abono_muestra_rectificacion_y_negativos():
+    html = render_invoice_html(credit_note())
+    for expected in [
+        "R-2026-0001",
+        "Factura rectificativa (abono)",
+        "Rectifica a la factura F-2026-0001 de 04/11/2026",
+        "Devolución de 1.000 kg en mal estado",
+        "por diferencias",
+        "R1",
+        "-1.000 kg",
+        "-312,50 €",
+        "-31,25 €",
+        "Recargo de equivalencia",
+        "-4,38 €",
+        "1,4 %",
+        "-348,13 €",
+        "QR tributario:",
+        "VERI*FACTU",
+    ]:
+        assert expected in html, expected
+
+
+def test_html_factura_anulada_muestra_marca():
+    assert "ANULADA" in render_invoice_html(invoice(cancelled=True))
+
+
+def test_html_factura_escapa_todo_menos_el_qr():
+    evil = "<script>alert(1)</script> & Cía"
+    customer = InvoiceCustomerDoc(code="C9", name=evil, tax_id=None, address=evil)
+    data = invoice(
+        customer=customer,
+        notes=evil,
+        verifactu_label=evil,
+        lines=[InvoiceLineDoc(evil, Decimal(1), Decimal(1), Decimal(21), Decimal(1))],
+    )
+    html = render_invoice_html(data)
+    assert "<script>" not in html
+    assert "&lt;script&gt;" in html
+    assert "&amp; Cía" in html
+    assert data.qr_svg in html
+
+
+def test_pdf_factura_de_12_lineas_cabe_en_una_pagina():
+    from pypdf import PdfReader
+
+    pdf = pdf_or_skip(render_invoice, invoice(lines_count=12))
+    assert pdf.startswith(b"%PDF")
+    assert len(PdfReader(io.BytesIO(pdf)).pages) == 1
+    text = pdf_text(pdf)
+    for expected in ["F-2026-0001", "B87654321", "QR tributario:", "VERI*FACTU", "Página 1"]:
+        assert expected in text, expected
+
+
+def test_pdf_factura_larga_repite_cabecera_de_tabla():
+    from pypdf import PdfReader
+
+    pdf = pdf_or_skip(render_invoice, invoice(lines_count=60))
+    pages = [page.extract_text() for page in PdfReader(io.BytesIO(pdf)).pages]
+    assert len(pages) > 1
+    assert all("DESCRIPCIÓN" in page.upper() for page in pages)
+
+
+def test_pdf_abono_anulado():
+    pdf = pdf_or_skip(render_invoice, credit_note(cancelled=True))
+    assert pdf.startswith(b"%PDF")
+    text = pdf_text(pdf)
+    for expected in ["R-2026-0001", "F-2026-0001", "-348,13", "ANULADA"]:
+        assert expected in text, expected
