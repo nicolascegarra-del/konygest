@@ -47,11 +47,27 @@ services:
       VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:soporte@klyp.es}
       BOOTSTRAP_SUPERADMIN_EMAIL: ${BOOTSTRAP_SUPERADMIN_EMAIL:-}
       BOOTSTRAP_SUPERADMIN_PASSWORD: ${BOOTSTRAP_SUPERADMIN_PASSWORD:-}
+      # Ficheros (albaranes...): "local" en el volumen `storage` o "s3" (MinIO/S3 externo)
+      STORAGE_BACKEND: ${STORAGE_BACKEND:-local}
+      STORAGE_LOCAL_PATH: /app/storage
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-}
+      MINIO_BUCKET_NAME: ${MINIO_BUCKET_NAME:-konygest}
+      MINIO_SECURE: ${MINIO_SECURE:-true}
+      # Destinos de documentos de cada empresa (vacío = no se ofrece ese proveedor)
+      GOOGLE_OAUTH_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID:-}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${GOOGLE_OAUTH_CLIENT_SECRET:-}
+      MICROSOFT_OAUTH_CLIENT_ID: ${MICROSOFT_OAUTH_CLIENT_ID:-}
+      MICROSOFT_OAUTH_CLIENT_SECRET: ${MICROSOFT_OAUTH_CLIENT_SECRET:-}
+      MICROSOFT_OAUTH_TENANT: ${MICROSOFT_OAUTH_TENANT:-common}
     # Prepara el rol de la API, migra, crea el superadmin (si no existe) y arranca
     command: >
       sh -c "python -m app.db_setup && alembic upgrade head && python -m app.bootstrap &&
       exec gunicorn app.main:app -k uvicorn.workers.UvicornWorker -w 2 -b 0.0.0.0:8000
       --forwarded-allow-ips='127.0.0.1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16' --access-logfile -"
+    volumes:
+      - storage:/app/storage
     expose:
       - "8000"
     healthcheck:
@@ -71,6 +87,8 @@ services:
     restart: unless-stopped
     environment: *backend-env
     command: celery -A app.worker worker --loglevel=INFO --concurrency=2
+    volumes:
+      - storage:/app/storage
     depends_on:
       api:
         condition: service_healthy
@@ -106,3 +124,5 @@ services:
 volumes:
   pgdata:
   redisdata:
+  # Albaranes y documentos generados (backend local). Incluir en las copias de seguridad.
+  storage:

@@ -28,3 +28,6 @@ test-results/
 Thumbs.db
 .vscode/
 .idea/
+
+# Ficheros del almacenamiento local (desarrollo)
+backend/storage/

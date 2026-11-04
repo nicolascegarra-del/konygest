@@ -28,6 +28,19 @@ services:
       - "1025:1025"
       - "8025:8025"
 
+  # Almacenamiento S3 (albaranes y documentos). Consola en http://localhost:9001.
+  # Imagen de Bitnami fijada: las imágenes oficiales de MinIO ya no se publican.
+  minio:
+    image: bitnamilegacy/minio:2025.4.22
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-konygest}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-konygest-dev-secret}
+      MINIO_DEFAULT_BUCKETS: ${MINIO_BUCKET_NAME:-konygest}
+    volumes:
+      - miniodata:/bitnami/minio/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
 
   api:
     build: ./backend
@@ -37,6 +50,12 @@ services:
       DATABASE_APP_URL: postgresql+psycopg://konygest_app:${APP_DB_PASSWORD}@db:5432/${POSTGRES_DB}
       REDIS_URL: redis://redis:6379/0
       SMTP_HOST: mailpit
+      STORAGE_BACKEND: s3
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-konygest}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-konygest-dev-secret}
+      MINIO_BUCKET_NAME: ${MINIO_BUCKET_NAME:-konygest}
+      MINIO_SECURE: "false"
     command: sh -c "alembic upgrade head && python -m app.bootstrap && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
     volumes:
       - ./backend/app:/app/app
@@ -48,6 +67,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_started
+      minio:
+        condition: service_started
 
   worker:
     build: ./backend
@@ -57,6 +78,12 @@ services:
       DATABASE_APP_URL: postgresql+psycopg://konygest_app:${APP_DB_PASSWORD}@db:5432/${POSTGRES_DB}
       REDIS_URL: redis://redis:6379/0
       SMTP_HOST: mailpit
+      STORAGE_BACKEND: s3
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-konygest}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-konygest-dev-secret}
+      MINIO_BUCKET_NAME: ${MINIO_BUCKET_NAME:-konygest}
+      MINIO_SECURE: "false"
     command: celery -A app.worker worker --loglevel=INFO
     volumes:
       - ./backend/app:/app/app
@@ -79,3 +106,4 @@ services:
 
 volumes:
   pgdata:
+  miniodata:
