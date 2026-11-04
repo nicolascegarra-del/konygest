@@ -142,6 +142,38 @@ Carpetas SMB: el contenedor de la API tiene que llegar al puerto 445 del NAS (IP
 restringida, VPN o Tailscale en el VPS). Si un destino falla al guardar, el documento se guarda en
 el almacenamiento de Konygest (sección 6) y se avisa a quien configura la empresa.
 
+## 8. Empresa de demostración (opcional)
+Para enseñar la app o probarla de punta a punta en producción se puede crear la empresa
+**«Piensos Demo»**, con un usuario por rol y datos de todas las fases ya desplegadas
+(clientes y explotaciones, piensos y materias primas, silos, camiones, stock, entradas de
+báscula, fabricación, pedidos en todos los estados y cargas con sus albaranes).
+
+1. En Coolify, abre el recurso → servicio **`api`** → **Terminal**.
+2. Ejecuta:
+   ```bash
+   python -m app.seed_demo --confirmar-produccion
+   ```
+3. Escribe dos veces la contraseña que tendrán los usuarios demo (mínimo 10 caracteres).
+   Se pide por teclado para que no quede en el historial de la terminal.
+
+Usuarios creados (todos con esa contraseña):
+
+| Usuario | Rol |
+|---|---|
+| `admin@demo.konygest.es` | Administrador |
+| `direccion@demo.konygest.es` | Dirección |
+| `oficina@demo.konygest.es` | Oficina |
+| `fabrica@demo.konygest.es` | Fábrica |
+| `comercial@demo.konygest.es` | Comercial |
+
+- Solo toca la empresa «Piensos Demo»; no modifica ninguna otra.
+- Es idempotente: si se vuelve a ejecutar no duplica nada. Tras desplegar una fase nueva,
+  ejecútalo otra vez para añadir solo los datos que falten de esa fase.
+- Para cambiar la contraseña de los usuarios demo:
+  `python -m app.seed_demo --confirmar-produccion --restablecer-contrasena`.
+- Queda registrado en el registro de actividad de la empresa (`demo.cargar`).
+- Para quitarla, desactiva la empresa desde `/admin` → Empresas.
+
 ## Comprobación tras el despliegue
 - `https://konygest.tudominio.es/` carga la landing (HTTP 200).
 - Login del superadmin y acceso a `/admin`.

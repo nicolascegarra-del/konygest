@@ -34,8 +34,10 @@ Pendiente fuera de las fases:
   y Microsoft Entra y poner sus credenciales OAuth en Coolify (pasos en la guía de despliegue).
 - Destino de documentos: el elegido por la empresa es el almacén principal (decisión del usuario);
   los documentos se registran en `stored_document` y se regeneran desde la BD si faltan.
-- En producción solo existe el superadmin del bootstrap (`BOOTSTRAP_SUPERADMIN_*` en Coolify); los
-  datos y usuarios de demostración solo están en las bases de datos locales.
+- En producción existe el superadmin del bootstrap (`BOOTSTRAP_SUPERADMIN_*` en Coolify). La
+  empresa «Piensos Demo» se crea en producción con
+  `python -m app.seed_demo --confirmar-produccion` (guía de despliegue, sección 8). Al añadir
+  datos de una fase nueva a `seed_demo`, que cada bloque siga siendo idempotente.
 
 ## Cómo se trabaja en este proyecto
 

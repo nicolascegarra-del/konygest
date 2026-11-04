@@ -1,7 +1,18 @@
-"""Datos de demostración para desarrollo local: una fábrica con un usuario por perfil.
+"""Empresa de demostración «Piensos Demo»: un usuario por rol y datos de todas las fases.
 
-Uso: `uv run python -m app.seed_demo <contraseña>` (mínimo 6 caracteres; solo
-para tu base de datos local). Es idempotente: si la empresa ya existe, no hace nada.
+Uso en desarrollo:   uv run python -m app.seed_demo [--password <contraseña>]
+Uso en producción:   python -m app.seed_demo --confirmar-produccion
+                     (desde la terminal del servicio `api` en Coolify; pide la contraseña
+                     por teclado para que no quede en el historial)
+
+Opciones:
+  --password <p>              contraseña de los usuarios demo (si se omite, se pide; también
+                              se puede pasar en la variable DEMO_PASSWORD)
+  --restablecer-contrasena    pone esa contraseña a los usuarios demo que ya existan
+  --confirmar-produccion      obligatorio si APP_ENV=production
+
+Es idempotente: cada bloque solo se carga si la empresa aún no lo tiene, así que se puede
+volver a ejecutar sin duplicar nada. Solo toca la empresa «Piensos Demo».
 Usuarios creados: <perfil>@demo.konygest.es (admin, direccion, oficina, fabrica, comercial).
 También carga maestros (clientes, explotaciones, piensos, materias primas, silos,
 camiones...) y un stock inicial, si la empresa aún no tiene artículos, y actividad
@@ -11,6 +22,9 @@ y pedidos de los comerciales en todos los estados si aún no tiene pedidos, y un
 carga de camión en cada estado (con su salida de stock y albaranes) si no tiene cargas.
 """
 
+import argparse
+import getpass
+import os
 import sys
 from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal
@@ -24,6 +38,7 @@ from app.core.config import get_settings
 from app.core.db import new_session
 from app.core.security import hash_password, utcnow
 from app.core.sequence import next_number
+from app.modules.auth.service import MIN_PASSWORD_LENGTH
 from app.modules.logistics import service as logistics
 from app.modules.logistics.models import Load, LoadItem, LoadStatus, LoadStop
 from app.modules.masters.models import (
@@ -45,6 +60,7 @@ from app.modules.masters.models import (
 from app.modules.masters.service import quote_price
 from app.modules.orders.models import Order, OrderLine, OrderStatus, PriceSource
 from app.modules.orders.service import today_madrid
+from app.modules.platform.audit import audit
 from app.modules.production.models import ProductionOrder, ProductionStatus
 from app.modules.stock.models import MovementKind, RawMaterialReceipt, StockMovement
 from app.modules.tenants.models import Tenant, TenantStatus
@@ -61,14 +77,16 @@ DEMO_USERS = {
 }
 
 
-def main(password: str) -> None:
-    if get_settings().is_production:
-        raise SystemExit("No se cargan datos de demostración en producción.")
+def main(password: str, reset_password: bool = False) -> None:
+    production = get_settings().is_production
     with new_session(bypass_rls=True) as db:
         tenant = db.exec(select(Tenant).where(Tenant.name == DEMO_TENANT)).first()
         if tenant:
             print("La empresa de demostración ya existe.")
+            if reset_password:
+                _reset_demo_passwords(db, tenant.id, password)
         else:
+            _ensure_emails_free(db)
             tenant = Tenant(name=DEMO_TENANT, tax_id="B00000000", status=TenantStatus.ACTIVE)
             db.add(tenant)
             db.flush()
@@ -108,7 +126,55 @@ def main(password: str) -> None:
         else:
             count = seed_loads(db, tenant.id)
             print(f"Cargadas {count} cargas de demostración (una en cada estado).")
+        audit(
+            db,
+            "demo.cargar",
+            tenant_id=tenant.id,
+            data={"produccion": production, "restablecer_contrasena": reset_password},
+        )
         db.commit()
+        _print_summary(db, tenant.id)
+
+
+def _demo_emails() -> list[str]:
+    return [f"{key}@demo.konygest.es" for key in DEMO_USERS]
+
+
+def _ensure_emails_free(db: Session) -> None:
+    """El email es único en toda la plataforma: no se crea la empresa si alguno ya existe."""
+    taken = db.exec(select(User.email).where(col(User.email).in_(_demo_emails()))).all()
+    if taken:
+        raise SystemExit(
+            f"Ya existen usuarios con estos emails en otra empresa: {', '.join(taken)}. "
+            "No se ha creado nada."
+        )
+
+
+def _reset_demo_passwords(db: Session, tenant_id: UUID, password: str) -> None:
+    password_hash = hash_password(password)
+    users = db.exec(
+        select(User).where(User.tenant_id == tenant_id, col(User.email).in_(_demo_emails()))
+    ).all()
+    for user in users:
+        user.password_hash = password_hash
+        user.is_active = True
+        user.failed_logins = 0
+        user.locked_until = None
+        db.add(user)
+    print(f"Contraseña restablecida a {len(users)} usuarios de demostración.")
+
+
+def _print_summary(db: Session, tenant_id: UUID) -> None:
+    print()
+    print("Usuarios de «Piensos Demo» (todos con la contraseña indicada):")
+    for key, (name, role) in DEMO_USERS.items():
+        print(f"  {key + '@demo.konygest.es':<32} {role:<14} {name}")
+    counts = {
+        "clientes": db.exec(select(func.count()).where(Customer.tenant_id == tenant_id)),
+        "pedidos": db.exec(select(func.count()).where(Order.tenant_id == tenant_id)),
+        "cargas": db.exec(select(func.count()).where(Load.tenant_id == tenant_id)),
+    }
+    print("Datos: " + ", ".join(f"{n.one()} {label}" for label, n in counts.items()))
 
 
 PRODUCTS = [
@@ -780,7 +846,40 @@ def seed_loads(db: Session, tenant_id: UUID) -> int:
     return count
 
 
+def _parse_args(argv: list[str]) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        prog="python -m app.seed_demo",
+        description="Crea la empresa de demostración «Piensos Demo» con datos de prueba.",
+    )
+    parser.add_argument("--password", help="contraseña de los usuarios demo")
+    parser.add_argument("--restablecer-contrasena", action="store_true", dest="reset_password")
+    parser.add_argument("--confirmar-produccion", action="store_true", dest="confirm_production")
+    args = parser.parse_args(argv)
+    # Compatibilidad con el uso anterior: `python -m app.seed_demo <contraseña>`
+    if args.password is None and len(argv) == 1 and not argv[0].startswith("-"):
+        args.password = argv[0]
+    return args
+
+
+def _read_password(args: argparse.Namespace, production: bool) -> str:
+    password = args.password or os.environ.get("DEMO_PASSWORD")
+    if not password:
+        password = getpass.getpass("Contraseña para los usuarios demo: ")
+        if getpass.getpass("Repite la contraseña: ") != password:
+            raise SystemExit("Las contraseñas no coinciden. No se ha hecho nada.")
+    # En producción se exige la misma longitud mínima que en la app
+    minimum = MIN_PASSWORD_LENGTH if production else 6
+    if len(password) < minimum:
+        raise SystemExit(f"La contraseña debe tener al menos {minimum} caracteres.")
+    return password
+
+
 if __name__ == "__main__":
-    if len(sys.argv) != 2 or len(sys.argv[1]) < 6:
-        raise SystemExit("Uso: python -m app.seed_demo <contraseña de al menos 6 caracteres>")
-    main(sys.argv[1])
+    arguments = _parse_args(sys.argv[1:])
+    is_production = get_settings().is_production
+    if is_production and not arguments.confirm_production:
+        raise SystemExit(
+            "Estás en producción (APP_ENV=production). Para crear la empresa de demostración "
+            "«Piensos Demo» añade --confirmar-produccion. Solo se toca esa empresa."
+        )
+    main(_read_password(arguments, is_production), reset_password=arguments.reset_password)
