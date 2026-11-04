@@ -2,6 +2,8 @@
 
 from app.core.sequence import DocumentSequence
 from app.modules.auth.models import ActionToken, AuthSession
+from app.modules.documents.models import StoredDocument, TenantStorage
+from app.modules.logistics.models import Load, LoadItem, LoadStop
 from app.modules.masters.models import (
     Carrier,
     Customer,
@@ -41,6 +43,9 @@ __all__ = [
     "EmailConfig",
     "Farm",
     "Item",
+    "Load",
+    "LoadItem",
+    "LoadStop",
     "PaymentMethod",
     "PriceList",
     "PriceListLine",
@@ -54,9 +59,11 @@ __all__ = [
     "RolePermission",
     "Silo",
     "StockMovement",
+    "StoredDocument",
     "Tenant",
     "TenantModule",
     "TenantNotificationSetting",
+    "TenantStorage",
     "Truck",
     "User",
     "UserDashboard",

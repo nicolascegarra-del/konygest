@@ -178,6 +178,20 @@ WIDGETS: dict[str, Widget] = {
             module="ventas",
         ),
         Widget(
+            "cargas_hoy",
+            "Cargas de hoy",
+            "Camiones planificados para hoy y su estado.",
+            permission="logistica.ver",
+            module="logistica",
+        ),
+        Widget(
+            "cargas_por_cargar",
+            "Cargas por cargar",
+            "Órdenes de carga emitidas que fábrica aún no ha pesado.",
+            permission="cargas.pesar",
+            module="logistica",
+        ),
+        Widget(
             "fabricacion_hoy",
             "Fabricación de hoy",
             "Órdenes de fabricación previstas para hoy.",
@@ -226,7 +240,14 @@ ROLE_TEMPLATES: list[RoleTemplate] = [
             "crm.objetivos",
             "mantenimiento.ver",
         ),
-        ["bienvenida", "resumen_empresa", "pedidos_semana", "roturas_stock", "notificaciones"],
+        [
+            "bienvenida",
+            "resumen_empresa",
+            "pedidos_semana",
+            "cargas_hoy",
+            "roturas_stock",
+            "notificaciones",
+        ],
     ),
     RoleTemplate(
         "Oficina",
@@ -249,6 +270,7 @@ ROLE_TEMPLATES: list[RoleTemplate] = [
         [
             "bienvenida",
             "pedidos_por_validar",
+            "cargas_hoy",
             "pedidos_semana",
             "notificaciones",
             "accesos_rapidos",
@@ -273,6 +295,7 @@ ROLE_TEMPLATES: list[RoleTemplate] = [
         ),
         [
             "bienvenida",
+            "cargas_por_cargar",
             "fabricacion_hoy",
             "stock_por_silo",
             "roturas_stock",
@@ -318,5 +341,13 @@ NOTIFICATION_TYPES: dict[str, NotificationType] = {
         NotificationType("pedido_pendiente", "Pedido pendiente de validar", push=True),
         NotificationType("pedido_confirmado", "Pedido confirmado", push=True),
         NotificationType("pedido_rechazado", "Pedido rechazado", email=True, push=True),
+        NotificationType("carga_lista", "Orden de carga emitida a fábrica", push=True),
+        NotificationType("carga_cargada", "Carga pesada y en ruta", push=True),
+        NotificationType("pedido_entregado", "Pedido entregado"),
+        NotificationType(
+            "documentos_error",
+            "No se pudo guardar un documento en el destino configurado",
+            email=True,
+        ),
     ]
 }

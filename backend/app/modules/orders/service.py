@@ -215,6 +215,15 @@ def _summary_fields(row) -> dict:
     }
 
 
+def list_query():
+    """Consulta del listado de pedidos para otros módulos (la logística la amplía para
+    sus pedidos pendientes de planificar); sus filas se convierten con `summary_fields`."""
+    return _query()
+
+
+summary_fields = _summary_fields
+
+
 def parse_statuses(value: str | None) -> list[OrderStatus]:
     if not value:
         return []

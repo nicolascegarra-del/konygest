@@ -8,6 +8,8 @@ import app.models  # noqa: F401  (registra los modelos)
 from app.core.config import get_settings
 from app.core.errors import register_error_handlers
 from app.modules.auth.router import router as auth_router
+from app.modules.documents.router import router as documents_router
+from app.modules.logistics.router import router as logistics_router
 from app.modules.masters.router import router as masters_router
 from app.modules.notifications.router import router as notifications_router
 from app.modules.orders.router import router as orders_router
@@ -63,6 +65,8 @@ for router in (
     stock_router,
     production_router,
     orders_router,
+    logistics_router,
+    documents_router,
 ):
     app.include_router(router, prefix=API_PREFIX)
 

@@ -7,21 +7,25 @@ También carga maestros (clientes, explotaciones, piensos, materias primas, silo
 camiones...) y un stock inicial, si la empresa aún no tiene artículos, y actividad
 de los últimos días (entradas de báscula, órdenes de fabricación en todos los
 estados, ajustes, precios negociados y más clientes) si aún no tiene fabricación,
-y pedidos de los comerciales en todos los estados si aún no tiene pedidos.
+y pedidos de los comerciales en todos los estados si aún no tiene pedidos, y una
+carga de camión en cada estado (con su salida de stock y albaranes) si no tiene cargas.
 """
 
 import sys
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal
 from uuid import UUID
 
-from sqlmodel import Session, select
+from sqlalchemy import func
+from sqlmodel import Session, col, select
 
 import app.models  # noqa: F401
 from app.core.config import get_settings
 from app.core.db import new_session
 from app.core.security import hash_password, utcnow
 from app.core.sequence import next_number
+from app.modules.logistics import service as logistics
+from app.modules.logistics.models import Load, LoadItem, LoadStatus, LoadStop
 from app.modules.masters.models import (
     Carrier,
     Customer,
@@ -99,6 +103,11 @@ def main(password: str) -> None:
         else:
             count = seed_orders(db, tenant.id)
             print(f"Cargados {count} pedidos de demostración.")
+        if db.exec(select(Load.id).where(Load.tenant_id == tenant.id)).first():
+            print("Las cargas de demostración ya existen.")
+        else:
+            count = seed_loads(db, tenant.id)
+            print(f"Cargadas {count} cargas de demostración (una en cada estado).")
         db.commit()
 
 
@@ -471,7 +480,6 @@ def seed_orders(db: Session, tenant_id: UUID) -> int:
     office = users.get("oficina")
     now = utcnow()
     today = today_madrid()
-    cent = Decimal("0.01")
     count = 0
     for index, (code, author, status, offset, notes, reason, lines) in enumerate(SALES_ORDERS):
         customer = customers.get(code)
@@ -479,55 +487,295 @@ def seed_orders(db: Session, tenant_id: UUID) -> int:
         if customer is None or customer.id not in farms:
             continue
         created = now - timedelta(days=4, hours=len(SALES_ORDERS) - index)
-        order = Order(
-            tenant_id=tenant_id,
-            number=next_number(db, tenant_id, "PED", created.year),
-            customer_id=customer.id,
-            farm_id=farms[customer.id].id,
-            # Como en la API: el comercial del cliente si el pedido lo hace oficina
-            sales_rep_id=creator.id if creator and creator is not office else customer.sales_rep_id,
-            status=status,
-            requested_date=today + timedelta(days=offset),
+        _add_order(
+            db,
+            tenant_id,
+            customer,
+            farms[customer.id],
+            creator,
+            office,
+            status,
+            today + timedelta(days=offset),
+            created,
+            lines,
+            items,
             notes=notes,
-            status_reason=reason,
-            created_by=creator.id if creator else None,
-            created_at=created,
-            updated_at=created + timedelta(hours=2),
+            reason=reason,
         )
-        if status != OrderStatus.DRAFT:
-            order.submitted_at = created + timedelta(hours=1)
-        if status == OrderStatus.CONFIRMED and office:
-            order.validated_by = office.id
-            order.validated_at = created + timedelta(hours=2)
-        db.add(order)
-        db.flush()
-        total_kg = total_amount = Decimal(0)
-        for position, (item_code, kg, silo, manual) in enumerate(lines, start=1):
-            item = items[item_code]
-            quote = quote_price(db, customer, item)
-            reference = quote.price
-            price = Decimal(manual) if manual else reference
-            assert price is not None, f"{item_code} sin precio para {code}"
-            amount = (Decimal(kg) * price).quantize(cent)
-            db.add(
-                OrderLine(
-                    tenant_id=tenant_id,
-                    order_id=order.id,
-                    position=position,
-                    item_id=item.id,
-                    quantity_kg=Decimal(kg),
-                    unit_price=price,
-                    price_source=PriceSource.MANUAL if manual else PriceSource(quote.source),
-                    reference_price=reference,
-                    amount=amount,
-                    farm_silo=silo,
-                )
+        count += 1
+    return count
+
+
+# Estados por los que ya ha pasado la validación de oficina
+VALIDATED = (OrderStatus.CONFIRMED, OrderStatus.PLANNED, OrderStatus.LOADED, OrderStatus.DELIVERED)
+
+
+def _add_order(
+    db: Session,
+    tenant_id: UUID,
+    customer: Customer,
+    farm: Farm,
+    creator: User | None,
+    office: User | None,
+    status: OrderStatus,
+    requested: date,
+    created: datetime,
+    lines: list[tuple[str, int, str, str | None]],
+    items: dict[str, Item],
+    notes: str = "",
+    reason: str = "",
+) -> Order:
+    """Pedido con los precios que corresponden al cliente, como lo dejaría la API."""
+    order = Order(
+        tenant_id=tenant_id,
+        number=next_number(db, tenant_id, "PED", created.year),
+        customer_id=customer.id,
+        farm_id=farm.id,
+        # Como en la API: el comercial del cliente si el pedido lo hace oficina
+        sales_rep_id=creator.id if creator and creator is not office else customer.sales_rep_id,
+        status=status,
+        requested_date=requested,
+        notes=notes,
+        status_reason=reason,
+        created_by=creator.id if creator else None,
+        created_at=created,
+        updated_at=created + timedelta(hours=2),
+    )
+    if status != OrderStatus.DRAFT:
+        order.submitted_at = created + timedelta(hours=1)
+    if status in VALIDATED and office:
+        order.validated_by = office.id
+        order.validated_at = created + timedelta(hours=2)
+    db.add(order)
+    db.flush()
+    cent = Decimal("0.01")
+    total_kg = total_amount = Decimal(0)
+    for position, (item_code, kg, silo, manual) in enumerate(lines, start=1):
+        item = items[item_code]
+        quote = quote_price(db, customer, item)
+        reference = quote.price
+        price = Decimal(manual) if manual else reference
+        assert price is not None, f"{item_code} sin precio para {customer.code}"
+        amount = (Decimal(kg) * price).quantize(cent)
+        db.add(
+            OrderLine(
+                tenant_id=tenant_id,
+                order_id=order.id,
+                position=position,
+                item_id=item.id,
+                quantity_kg=Decimal(kg),
+                unit_price=price,
+                price_source=PriceSource.MANUAL if manual else PriceSource(quote.source),
+                reference_price=reference,
+                amount=amount,
+                farm_silo=silo,
             )
-            total_kg += Decimal(kg)
-            total_amount += amount
-        order.total_kg = total_kg
-        order.total_amount = total_amount
-        db.add(order)
+        )
+        total_kg += Decimal(kg)
+        total_amount += amount
+    order.total_kg = total_kg
+    order.total_amount = total_amount
+    db.add(order)
+    db.flush()
+    return order
+
+
+# (matrícula, conductor, estado, días desde hoy, notas,
+#  paradas en orden de descarga [(cliente, pienso, kg, silo de la explotación)])
+# Las planificadas y listas usan pedidos confirmados del seed si encajan.
+# fmt: off
+LOADS = [
+    ("5678NPR", "Luis Ruiz", LoadStatus.DELIVERED, -1, "",
+     [("C002", "P-CEB", 14000, "Silo 1"), ("C003", "P-VAC", 12000, "Silo 2")]),
+    ("1234KLM", "Paco Martínez", LoadStatus.LOADED, 0, "Descargar primero en Cieza",
+     [("C002", "P-CEB", 16000, "Silo 1"), ("C003", "P-VAC", 8000, "Silo 1")]),
+    ("1234KLM", "Paco Martínez", LoadStatus.READY, 0, "",
+     [("C001", "P-CEB", 14000, "Silo 1")]),
+    ("5678NPR", "Luis Ruiz", LoadStatus.PLANNED, 2, "Avisar al ganadero la víspera",
+     [("C004", "P-VAC", 24000, "Silo único")]),
+]
+# fmt: on
+WEIGHED = (LoadStatus.LOADED, LoadStatus.DELIVERED)
+LOAD_ORDER_STATUS = {
+    LoadStatus.PLANNED: OrderStatus.PLANNED,
+    LoadStatus.READY: OrderStatus.PLANNED,
+    LoadStatus.LOADED: OrderStatus.LOADED,
+    LoadStatus.DELIVERED: OrderStatus.DELIVERED,
+}
+
+
+def seed_loads(db: Session, tenant_id: UUID) -> int:
+    """Una carga en cada estado, coherente con pedidos, stock y numeración.
+
+    Las planificadas y listas usan pedidos confirmados del seed (o los crea si no
+    encajan); las ya pesadas llevan pedidos nuevos de su día, sus salidas de stock
+    `load_out` y número de albarán, con el PDF pendiente (se genera al pedirlo).
+    """
+    t = tenant_id
+    items = {i.code: i for i in db.exec(select(Item).where(Item.tenant_id == t)).all()}
+    item_codes = {i.id: i.code for i in items.values()}
+    customers = {c.code: c for c in db.exec(select(Customer).where(Customer.tenant_id == t)).all()}
+    farms = {f.customer_id: f for f in db.exec(select(Farm).where(Farm.tenant_id == t)).all()}
+    trucks = {k.plate: k for k in db.exec(select(Truck).where(Truck.tenant_id == t)).all()}
+    drivers = {d.full_name: d for d in db.exec(select(Driver).where(Driver.tenant_id == t)).all()}
+    users = {
+        u.email.split("@")[0]: u for u in db.exec(select(User).where(User.tenant_id == t)).all()
+    }
+    office, factory = users.get("oficina"), users.get("fabrica")
+    now = utcnow()
+    today = today_madrid()
+    used: set[UUID] = set()
+
+    def new_order(code: str, item_code: str, kg: int, silo: str, day: date) -> Order:
+        customer = customers[code]
+        return _add_order(
+            db,
+            t,
+            customer,
+            farms[customer.id],
+            office,
+            office,
+            OrderStatus.CONFIRMED,
+            day,
+            now - timedelta(days=3),
+            [(item_code, kg, silo, None)],
+            items,
+        )
+
+    def seeded_order(code: str, item_code: str, kg: int, silo: str, day: date) -> Order:
+        candidates = db.exec(
+            select(Order)
+            .join(OrderLine, OrderLine.order_id == Order.id)
+            .where(
+                Order.tenant_id == t,
+                Order.status == OrderStatus.CONFIRMED,
+                Order.customer_id == customers[code].id,
+                OrderLine.item_id == items[item_code].id,
+                OrderLine.quantity_kg == kg,
+            )
+            .order_by(col(Order.number))
+        ).all()
+        for order in candidates:
+            if order.id not in used:
+                return order
+        return new_order(code, item_code, kg, silo, day)
+
+    def richest_silo(item_id: UUID, kg: Decimal) -> Silo:
+        # Fábrica carga del silo que más tiene de ese pienso
+        total = func.sum(StockMovement.quantity_kg)
+        row = db.exec(
+            select(StockMovement.silo_id, total)
+            .where(StockMovement.tenant_id == t, StockMovement.item_id == item_id)
+            .group_by(StockMovement.silo_id)
+            .order_by(total.desc())
+        ).first()
+        if row is None or row[1] < kg:
+            raise SystemExit(f"No hay stock de {item_codes[item_id]} para las cargas de demo.")
+        silo = db.get(Silo, row[0])
+        assert silo is not None
+        return silo
+
+    count = 0
+    for plate, driver_name, status, offset, notes, stops in LOADS:
+        truck, driver = trucks.get(plate), drivers.get(driver_name)
+        if truck is None or any(code not in customers for code, *_ in stops):
+            continue
+        load_date = today + timedelta(days=offset)
+        start = datetime.combine(load_date, time(6), tzinfo=UTC)
+        weighed = status in WEIGHED
+        pick = new_order if weighed else seeded_order
+        orders = [pick(code, item, kg, silo, load_date) for code, item, kg, silo in stops]
+        used.update(o.id for o in orders)
+        load = Load(
+            tenant_id=t,
+            number=next_number(db, t, "CAR", load_date.year),
+            load_date=load_date,
+            truck_id=truck.id,
+            driver_id=driver.id if driver else None,
+            status=status,
+            notes=notes,
+            created_by=office.id if office else None,
+            created_at=now - timedelta(days=2),
+            updated_at=now - timedelta(hours=1),
+        )
+        if status != LoadStatus.PLANNED:
+            load.released_at = start - timedelta(hours=12)
+        db.add(load)
+        db.flush()
+        load_stops = {}
+        for sequence, order in enumerate(orders, start=1):
+            stop = LoadStop(tenant_id=t, load_id=load.id, order_id=order.id, sequence=sequence)
+            db.add(stop)
+            load_stops[order.id] = stop
+        db.flush()
+
+        # Mismo reparto automático que la API
+        lines = [
+            logistics.PlanLine(line, order, item_codes[line.item_id])
+            for order in orders
+            for line in db.exec(
+                select(OrderLine)
+                .where(OrderLine.order_id == order.id)
+                .order_by(col(OrderLine.position))
+            ).all()
+        ]
+        capacities = [Decimal(str(c)) for c in truck.compartments]
+        weighed_kg = Decimal(0)
+        for index, (ln, compartment, kg) in enumerate(logistics.auto_assign(lines, capacities)):
+            load_item = LoadItem(
+                tenant_id=t,
+                load_id=load.id,
+                stop_id=load_stops[ln.order.id].id,
+                order_line_id=ln.line.id,
+                compartment=compartment,
+                planned_kg=kg,
+            )
+            if weighed:
+                # La báscula nunca da exactamente lo previsto
+                actual = kg - Decimal(15 if index % 2 == 0 else 0)
+                silo = richest_silo(ln.line.item_id, actual)
+                movement = StockMovement(
+                    tenant_id=t,
+                    item_id=ln.line.item_id,
+                    silo_id=silo.id,
+                    kind=MovementKind.LOAD_OUT,
+                    quantity_kg=-actual,
+                    occurred_at=start + timedelta(hours=1),
+                    source_type="truck_load",
+                    source_id=load.id,
+                    notes=f"Carga {load.number} · pedido {ln.order.number} · "
+                    f"compartimento {compartment}",
+                    user_id=factory.id if factory else None,
+                )
+                db.add(movement)
+                db.flush()
+                load_item.actual_kg = actual
+                load_item.silo_id = silo.id
+                load_item.stock_movement_id = movement.id
+                weighed_kg += actual
+            db.add(load_item)
+
+        if weighed:
+            load.loaded_at = start + timedelta(hours=1)
+            load.loaded_by = factory.id if factory else None
+            load.tare_kg = Decimal(14200)
+            load.gross_kg = load.tare_kg + weighed_kg
+            for sequence, order in enumerate(orders, start=1):
+                stop = load_stops[order.id]
+                # Sin PDF guardado: se genera y se guarda la primera vez que se pide
+                stop.delivery_note_number = next_number(db, t, "ALB", load_date.year)
+                if status == LoadStatus.DELIVERED:
+                    stop.delivered_at = start + timedelta(hours=2 + 2 * sequence)
+                    stop.received_by = "Encargado de la explotación"
+                    stop.confirmed_by = factory.id if factory else None
+                db.add(stop)
+            if status == LoadStatus.DELIVERED:
+                load.delivered_at = start + timedelta(hours=2 + 2 * len(orders))
+        for order in orders:
+            order.status = LOAD_ORDER_STATUS[status]
+            db.add(order)
+        db.add(load)
+        db.flush()
         count += 1
     return count
 
