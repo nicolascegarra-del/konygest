@@ -12,6 +12,14 @@ services:
     restart: unless-stopped
     expose:
       - "3000"
+    # En el compose y no solo en el Dockerfile: Coolify solo mira este. La portada es
+    # estática, así que el proxy no deja de enrutar a la web si la API tarda en responder.
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/ >/dev/null || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     depends_on:
       api:
         condition: service_healthy
@@ -91,6 +99,14 @@ services:
     command: celery -A app.worker worker --loglevel=INFO --concurrency=2
     volumes:
       - storage:/app/storage
+    # Comprueba que el worker responde por Redis. Cada comprobación arranca un proceso de
+    # Python con la app cargada, por eso el intervalo es largo.
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A app.worker inspect ping -d celery@$$HOSTNAME --timeout 10"]
+      interval: 60s
+      timeout: 30s
+      retries: 3
+      start_period: 60s
     depends_on:
       api:
         condition: service_healthy
