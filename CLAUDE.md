@@ -18,7 +18,7 @@ Mantén esta tabla al día al cerrar cada fase.
 | 0b | Landing pública | ✅ en `v1` |
 | 1 | Maestros, stock (libro inmutable), entradas de MP con báscula, fabricación de producto terminado | ✅ en `v1` |
 | 2 | Pedidos de comerciales con validación en oficina (riesgo, precio, stock) | ✅ en `v1` |
-| 3 | Logística: cargas, compartimentos, orden de carga, pesada, albarán PDF; módulo de documentos (storage + WeasyPrint) | 🔄 en curso (rama `feature/fase3-logistica`) |
+| 3 | Logística: cargas, compartimentos, orden de carga, pesada, albarán PDF; módulo de documentos (storage + WeasyPrint) y destino de documentos por empresa (Google Drive, OneDrive/SharePoint, SMB; contrato en `docs/api-documentos.md`) | ✅ en `v1` |
 | 4 | Facturación, abonos y registro Verifactu (sin envío) | 🔄 núcleo de huella y QR hecho en `backend/app/modules/verifactu/` (puntos `VERIFICAR` pendientes) |
 | 5 | Fórmulas y lotes con trazabilidad | pendiente |
 | 6 | IA (clave por empresa, asistente, pedidos por voz, propuesta de cargas) | pendiente |
@@ -30,6 +30,10 @@ Mantén esta tabla al día al cerrar cada fase.
 Pendiente fuera de las fases:
 - Coolify no tiene auto-deploy (falta webhook o GitHub App); se despliega a mano con **Deploy**,
   previa copia de seguridad de PostgreSQL cuando hay migraciones.
+- Los botones «Conectar con Google / Microsoft» necesitan registrar la app una vez en Google Cloud
+  y Microsoft Entra y poner sus credenciales OAuth en Coolify (pasos en la guía de despliegue).
+- Destino de documentos: el elegido por la empresa es el almacén principal (decisión del usuario);
+  los documentos se registran en `stored_document` y se regeneran desde la BD si faltan.
 - En producción solo existe el superadmin del bootstrap (`BOOTSTRAP_SUPERADMIN_*` en Coolify); los
   datos y usuarios de demostración solo están en las bases de datos locales.
 
@@ -76,6 +80,9 @@ Pendiente fuera de las fases:
   `MSYS_NO_PATHCONV=1 docker run --rm -v "C:\\dev\\konygest\\frontend:/app" -w /app node:22-alpine sh -c "npx tsc --noEmit && npx eslint . --max-warnings 0 && npx vitest run"`.
 - WeasyPrint no carga en Windows sin GTK: los PDF se generan en Docker, CI y producción; en local
   los tests de PDF se saltan y la API responde 503 `PDF_UNAVAILABLE`.
+- Si varios agentes ejecutan tests a la vez, cada uno usa su propia BD de test
+  (`TEST_DATABASE_URL` / `TEST_DATABASE_APP_URL`, que `tests/conftest.py` admite) para no
+  chocar en el truncado y las migraciones de `konygest_test`.
 - Datos de demostración locales: `uv run python -m app.seed_demo <contraseña>` (empresa
   «Piensos Demo» con maestros, stock, fabricación, pedidos y cargas). Hay además usuarios de
   prueba `prueba-<rol>@demo.konygest.es` creados a mano en la BD local (la contraseña no se
