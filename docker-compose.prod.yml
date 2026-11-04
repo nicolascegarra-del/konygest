@@ -61,6 +61,8 @@ services:
       MICROSOFT_OAUTH_CLIENT_ID: ${MICROSOFT_OAUTH_CLIENT_ID:-}
       MICROSOFT_OAUTH_CLIENT_SECRET: ${MICROSOFT_OAUTH_CLIENT_SECRET:-}
       MICROSOFT_OAUTH_TENANT: ${MICROSOFT_OAUTH_TENANT:-common}
+      # QR tributario de Verifactu: "production" solo cuando se facture de verdad
+      VERIFACTU_ENVIRONMENT: ${VERIFACTU_ENVIRONMENT:-test}
     # Prepara el rol de la API, migra, crea el superadmin (si no existe) y arranca
     command: >
       sh -c "python -m app.db_setup && alembic upgrade head && python -m app.bootstrap &&

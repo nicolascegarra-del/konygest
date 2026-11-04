@@ -3,6 +3,7 @@
 from app.core.sequence import DocumentSequence
 from app.modules.auth.models import ActionToken, AuthSession
 from app.modules.documents.models import StoredDocument, TenantStorage
+from app.modules.invoicing.models import Invoice, InvoiceLine, VerifactuRecord
 from app.modules.logistics.models import Load, LoadItem, LoadStop
 from app.modules.masters.models import (
     Carrier,
@@ -42,6 +43,8 @@ __all__ = [
     "Driver",
     "EmailConfig",
     "Farm",
+    "Invoice",
+    "InvoiceLine",
     "Item",
     "Load",
     "LoadItem",
@@ -70,4 +73,5 @@ __all__ = [
     "UserNotificationPreference",
     "UserRole",
     "VatRate",
+    "VerifactuRecord",
 ]

@@ -192,6 +192,20 @@ WIDGETS: dict[str, Widget] = {
             module="logistica",
         ),
         Widget(
+            "facturacion_mes",
+            "Facturación del mes",
+            "Importe facturado este mes frente al anterior.",
+            permission="facturas.ver",
+            module="facturacion",
+        ),
+        Widget(
+            "pendiente_facturar",
+            "Pendiente de facturar",
+            "Pedidos entregados que aún no tienen factura.",
+            permission="facturas.emitir",
+            module="facturacion",
+        ),
+        Widget(
             "fabricacion_hoy",
             "Fabricación de hoy",
             "Órdenes de fabricación previstas para hoy.",
@@ -245,6 +259,7 @@ ROLE_TEMPLATES: list[RoleTemplate] = [
             "resumen_empresa",
             "pedidos_semana",
             "cargas_hoy",
+            "facturacion_mes",
             "roturas_stock",
             "notificaciones",
         ],
@@ -270,6 +285,7 @@ ROLE_TEMPLATES: list[RoleTemplate] = [
         [
             "bienvenida",
             "pedidos_por_validar",
+            "pendiente_facturar",
             "cargas_hoy",
             "pedidos_semana",
             "notificaciones",
@@ -344,6 +360,7 @@ NOTIFICATION_TYPES: dict[str, NotificationType] = {
         NotificationType("carga_lista", "Orden de carga emitida a fábrica", push=True),
         NotificationType("carga_cargada", "Carga pesada y en ruta", push=True),
         NotificationType("pedido_entregado", "Pedido entregado"),
+        NotificationType("factura_emitida", "Factura emitida a un cliente"),
         NotificationType(
             "documentos_error",
             "No se pudo guardar un documento en el destino configurado",

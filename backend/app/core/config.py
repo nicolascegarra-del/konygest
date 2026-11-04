@@ -59,6 +59,10 @@ class Settings(BaseSettings):
     microsoft_oauth_client_secret: str = ""
     microsoft_oauth_tenant: str = "common"
 
+    # Entorno de la URL del QR tributario de Verifactu: "test" (portal de pruebas de la AEAT)
+    # o "production". Por defecto pruebas, para no generar QR «reales» desde desarrollo.
+    verifactu_environment: Literal["test", "production"] = "test"
+
     # Intentos fallidos de login antes de bloquear la cuenta y minutos de bloqueo
     max_failed_logins: int = 5
     lockout_minutes: int = 15
