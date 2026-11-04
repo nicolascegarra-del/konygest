@@ -102,6 +102,12 @@ export const CUSTOMER_FIELDS: MasterField[] = [
   { name: "price_list_id", type: "select", label: "Tarifa", lookup: "price_lists", emptyLabel: "Precio general" },
   { name: "payment_method_id", type: "select", label: "Forma de pago", lookup: "payment_methods", emptyLabel: "Sin forma de pago" },
   { name: "credit_limit", type: "number", label: "Límite de crédito", min: 0, suffix: "€" },
+  {
+    name: "equivalence_surcharge",
+    type: "switch",
+    label: "Recargo de equivalencia",
+    hint: "Comerciante minorista en recargo de equivalencia: sus facturas llevan el recargo de cada tipo de IVA.",
+  },
   { name: "notes", type: "textarea", label: "Notas", maxLength: 2000 },
   ACTIVE_FIELD,
 ];

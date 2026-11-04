@@ -12,6 +12,9 @@ import {
   CreditCard,
   FilePlus2,
   FolderCog,
+  FileClock,
+  FileText,
+  Link2,
   Factory,
   Gauge,
   Home,
@@ -64,6 +67,14 @@ const TENANT_NAV: NavGroup[] = [
     items: [
       { href: "/logistica", label: "Planificación", icon: CalendarDays, permission: "logistica.ver", module: "logistica" },
       { href: "/logistica/cargas", label: "Cargas", icon: Truck, permission: "logistica.ver", module: "logistica" },
+    ],
+  },
+  {
+    label: "Facturación",
+    items: [
+      { href: "/facturacion/pendiente", label: "Pendiente de facturar", icon: FileClock, permission: "facturas.emitir", module: "facturacion" },
+      { href: "/facturacion/facturas", label: "Facturas", icon: FileText, permission: "facturas.ver", module: "facturacion" },
+      { href: "/facturacion/verifactu", label: "Verifactu", icon: Link2, permission: "facturas.ver", module: "facturacion" },
     ],
   },
   {

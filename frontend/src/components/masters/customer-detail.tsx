@@ -46,7 +46,9 @@ const pricesSchema = buildMasterSchema([PRICES_FIELD]);
 export function customerPayload(customer: Customer): Record<string, unknown> {
   const payload: Record<string, unknown> = {};
   const record = customer as unknown as Record<string, unknown>;
-  for (const field of CUSTOMER_FIELDS) payload[field.name] = record[field.name] ?? null;
+  for (const field of CUSTOMER_FIELDS) {
+    payload[field.name] = record[field.name] ?? (field.type === "switch" ? false : null);
+  }
   return payload;
 }
 
@@ -128,6 +130,7 @@ export function CustomerDetail({ customerId }: { customerId: string }) {
               <InfoRow label="Tarifa">{nameOf("price_lists", data.price_list_id) ?? "Precio general"}</InfoRow>
               <InfoRow label="Forma de pago">{nameOf("payment_methods", data.payment_method_id)}</InfoRow>
               <InfoRow label="Límite de crédito">{formatCreditLimit(data.credit_limit)}</InfoRow>
+              <InfoRow label="Recargo de equivalencia">{data.equivalence_surcharge ? "Sí" : "No"}</InfoRow>
               <InfoRow label="Notas">
                 {data.notes ? <span className="whitespace-pre-line">{data.notes}</span> : null}
               </InfoRow>

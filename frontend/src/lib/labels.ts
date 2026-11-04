@@ -3,6 +3,7 @@ import type { ItemKind, MovementKind, OrderStatus, PriceSource, SiloKind } from 
 import type { LinePriceSource, SalesOrderStatus } from "@/types/fase2";
 import type { DocumentKind, StorageProvider, StorageStatus } from "@/types/documents";
 import type { LoadStatus } from "@/types/fase3";
+import type { InvoiceKind, InvoiceStatus, VerifactuRecordType } from "@/types/fase4";
 
 export const TENANT_STATUS_LABELS: Record<TenantStatus, string> = {
   trial: "En prueba",
@@ -160,4 +161,48 @@ export const DOCUMENT_KIND_LABELS: Record<DocumentKind, string> = {
 /** Etiqueta de un tipo de documento; los tipos que aún no conoce el frontend se muestran tal cual. */
 export function documentKindLabel(kind: string): string {
   return (DOCUMENT_KIND_LABELS as Record<string, string>)[kind] ?? kind;
+}
+
+// ─── Facturación (fase 4) ──────────────────────────
+
+export const INVOICE_STATUS_LABELS: Record<InvoiceStatus, string> = {
+  draft: "Borrador",
+  issued: "Emitida",
+  cancelled: "Anulada",
+};
+
+export const INVOICE_STATUS_VARIANTS: Record<InvoiceStatus, BadgeVariant> = {
+  draft: "outline",
+  issued: "success",
+  cancelled: "destructive",
+};
+
+export const INVOICE_KIND_LABELS: Record<InvoiceKind, string> = {
+  invoice: "Factura",
+  credit_note: "Abono",
+};
+
+/** Explicación corta de cada tipo Verifactu de factura. */
+export const INVOICE_TYPE_LABELS: Record<string, string> = {
+  F1: "Factura completa",
+  F2: "Factura simplificada",
+  R1: "Rectificativa por error fundado en derecho o art. 80.1, 80.2 y 80.6 LIVA",
+  R2: "Rectificativa por concurso de acreedores",
+  R3: "Rectificativa por créditos incobrables",
+  R4: "Rectificativa por otras causas",
+  R5: "Rectificativa de simplificada",
+};
+
+export const VERIFACTU_RECORD_TYPE_LABELS: Record<VerifactuRecordType, string> = {
+  alta: "Alta",
+  anulacion: "Anulación",
+};
+
+/** Estado de envío a la AEAT de un registro Verifactu (el envío llega en la fase 7). */
+export function verifactuSendStatusLabel(status: string): string {
+  if (status === "not_sent") return "No enviado: envío a la AEAT pendiente de activar";
+  if (status === "sent") return "Enviado";
+  if (status === "accepted") return "Aceptado por la AEAT";
+  if (status === "rejected") return "Rechazado por la AEAT";
+  return status;
 }

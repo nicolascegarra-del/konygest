@@ -148,3 +148,16 @@ export function formatBytes(value: number | null | undefined): string {
   // Espacio duro: la cifra y la unidad no se separan al partir la línea.
   return `${text} ${BYTE_UNITS[unit]}`;
 }
+
+/**
+ * Importe en euros con el signo menos tipográfico (U+2212), para abonos y diferencias.
+ * @param options.signed - Antepone «+» a los importes positivos (comparaciones entre meses).
+ * @returns Por ejemplo «−1.234,50 €», «+80,00 €». «—» si no hay valor.
+ */
+export function formatSignedMoney(value: number | null | undefined, options: { signed?: boolean } = {}): string {
+  if (value === null || value === undefined || !Number.isFinite(value)) return "—";
+  const rounded = Math.round(value * 100) / 100;
+  const text = moneyFormatter.format(Math.abs(rounded));
+  const sign = rounded < 0 ? "−" : options.signed && rounded > 0 ? "+" : "";
+  return `${sign}${text}`;
+}

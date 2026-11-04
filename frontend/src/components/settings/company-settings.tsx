@@ -21,9 +21,30 @@ export const TENANT_KEY = ["tenant"] as const;
 const companySchema = z.object({
   name: z.string().trim().min(2, "Indica el nombre de la empresa.").max(150),
   tax_id: z.string().trim().max(30),
+  legal_name: z.string().trim().max(200),
+  address: z.string().trim().max(300),
+  postal_code: z.string().trim().max(10),
+  city: z.string().trim().max(100),
+  province: z.string().trim().max(100),
+  feed_registration: z.string().trim().max(50),
   require_2fa: z.boolean(),
 });
 type CompanyValues = z.infer<typeof companySchema>;
+
+/** Valores del formulario a partir de la empresa (los datos fiscales pueden faltar si el backend es anterior). */
+export function companyValues(tenant: Tenant): CompanyValues {
+  return {
+    name: tenant.name,
+    tax_id: tenant.tax_id ?? "",
+    legal_name: tenant.legal_name ?? "",
+    address: tenant.address ?? "",
+    postal_code: tenant.postal_code ?? "",
+    city: tenant.city ?? "",
+    province: tenant.province ?? "",
+    feed_registration: tenant.feed_registration ?? "",
+    require_2fa: tenant.require_2fa,
+  };
+}
 
 function CompanyForm({ tenant }: { tenant: Tenant }) {
   const queryClient = useQueryClient();
@@ -36,15 +57,15 @@ function CompanyForm({ tenant }: { tenant: Tenant }) {
     formState: { errors, isDirty },
   } = useForm<CompanyValues>({
     resolver: zodResolver(companySchema),
-    defaultValues: { name: tenant.name, tax_id: tenant.tax_id ?? "", require_2fa: tenant.require_2fa },
+    defaultValues: companyValues(tenant),
   });
 
   const save = useMutation({
     mutationFn: (values: CompanyValues) =>
-      api.patch<Tenant>("/tenant", { name: values.name, tax_id: values.tax_id || null, require_2fa: values.require_2fa }),
+      api.patch<Tenant>("/tenant", { ...values, tax_id: values.tax_id || null }),
     onSuccess: async (updated) => {
       queryClient.setQueryData(TENANT_KEY, updated);
-      reset({ name: updated.name, tax_id: updated.tax_id ?? "", require_2fa: updated.require_2fa });
+      reset(companyValues(updated));
       await reloadMe();
       toast.success("Datos de la empresa guardados.");
     },
@@ -57,13 +78,45 @@ function CompanyForm({ tenant }: { tenant: Tenant }) {
         <CardTitle>Datos de la empresa</CardTitle>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit((values) => save.mutate(values))} className="max-w-lg space-y-4" noValidate>
+        <form onSubmit={handleSubmit((values) => save.mutate(values))} className="max-w-2xl space-y-4" noValidate>
           <Field label="Nombre" htmlFor="name" error={errors.name?.message}>
             <Input id="name" autoComplete="organization" {...register("name")} />
           </Field>
-          <Field label="CIF / NIF" htmlFor="tax_id" error={errors.tax_id?.message}>
-            <Input id="tax_id" {...register("tax_id")} />
-          </Field>
+          <fieldset className="space-y-4 rounded-lg border p-4">
+            <legend className="px-1 text-sm font-semibold">Datos fiscales</legend>
+            <p className="text-sm text-muted-foreground">
+              Salen en las facturas y los albaranes. Para emitir facturas hacen falta al menos el NIF y la dirección.
+            </p>
+            <div className="grid gap-4 md:grid-cols-2">
+              <Field label="Razón social" htmlFor="legal_name" error={errors.legal_name?.message} hint="Si se deja vacía, se usa el nombre.">
+                <Input id="legal_name" {...register("legal_name")} />
+              </Field>
+              <Field label="CIF / NIF" htmlFor="tax_id" error={errors.tax_id?.message}>
+                <Input id="tax_id" {...register("tax_id")} />
+              </Field>
+              <div className="md:col-span-2">
+                <Field label="Dirección" htmlFor="address" error={errors.address?.message}>
+                  <Input id="address" autoComplete="street-address" {...register("address")} />
+                </Field>
+              </div>
+              <Field label="Código postal" htmlFor="postal_code" error={errors.postal_code?.message}>
+                <Input id="postal_code" inputMode="numeric" autoComplete="postal-code" {...register("postal_code")} />
+              </Field>
+              <Field label="Población" htmlFor="city" error={errors.city?.message}>
+                <Input id="city" autoComplete="address-level2" {...register("city")} />
+              </Field>
+              <Field label="Provincia" htmlFor="province" error={errors.province?.message}>
+                <Input id="province" autoComplete="address-level1" {...register("province")} />
+              </Field>
+              <Field
+                label="Nº de registro de establecimiento de piensos"
+                htmlFor="feed_registration"
+                error={errors.feed_registration?.message}
+              >
+                <Input id="feed_registration" {...register("feed_registration")} />
+              </Field>
+            </div>
+          </fieldset>
           <div className="flex items-start justify-between gap-4 rounded-lg border p-4">
             <div>
               <label htmlFor="require_2fa" className="text-sm font-medium">

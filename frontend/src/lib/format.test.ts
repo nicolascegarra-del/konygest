@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { formatBytes, formatKg, formatPlainDate, formatPrice, parseDecimal, toIsoDate } from "@/lib/format";
+import { formatBytes, formatKg, formatPlainDate, formatPrice, formatSignedMoney, parseDecimal, toIsoDate } from "@/lib/format";
 
 // Intl usa espacio duro (U+00A0) entre la cifra y la unidad.
 const nbsp = (text: string) => text.replace(/ /g, " ");
@@ -85,5 +85,18 @@ describe("formatBytes", () => {
     expect(formatBytes(null)).toBe("—");
     expect(formatBytes(undefined)).toBe("—");
     expect(formatBytes(-1)).toBe("—");
+  });
+});
+
+describe("formatSignedMoney", () => {
+  it("usa el signo menos tipográfico en los negativos (abonos)", () => {
+    expect(formatSignedMoney(-1234.5)).toBe(nbsp("−1.234,50 €"));
+    expect(formatSignedMoney(80)).toBe(nbsp("80,00 €"));
+  });
+
+  it("con signed antepone «+» a los positivos y nada al cero", () => {
+    expect(formatSignedMoney(80, { signed: true })).toBe(nbsp("+80,00 €"));
+    expect(formatSignedMoney(0, { signed: true })).toBe(nbsp("0,00 €"));
+    expect(formatSignedMoney(null)).toBe("—");
   });
 });

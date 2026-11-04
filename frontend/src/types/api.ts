@@ -93,6 +93,14 @@ export interface Tenant {
   require_2fa: boolean;
   plan_code?: string | null;
   modules: TenantModule[];
+  /** Datos fiscales (fase 4): salen en facturas y albaranes. */
+  legal_name?: string;
+  address?: string;
+  postal_code?: string;
+  city?: string;
+  province?: string;
+  /** Nº de registro de establecimiento de piensos. */
+  feed_registration?: string;
 }
 
 export interface TenantSummary {

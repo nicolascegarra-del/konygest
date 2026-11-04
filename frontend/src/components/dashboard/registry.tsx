@@ -1,6 +1,7 @@
 import type { ComponentType } from "react";
 
 import { ProductionTodayWidget, StockBySiloWidget, StockShortagesWidget } from "./factory-widgets";
+import { InvoicingMonthWidget, PendingInvoicingWidget } from "./invoicing-widgets";
 import { LoadsTodayWidget, LoadsToWeighWidget } from "./logistics-widgets";
 import { MyOrdersWidget, OrdersToValidateWidget, OrdersWeekWidget } from "./orders-widgets";
 import {
@@ -30,6 +31,8 @@ export const WIDGET_REGISTRY: Record<string, ComponentType<WidgetProps>> = {
   pedidos_semana: OrdersWeekWidget,
   cargas_hoy: LoadsTodayWidget,
   cargas_por_cargar: LoadsToWeighWidget,
+  facturacion_mes: InvoicingMonthWidget,
+  pendiente_facturar: PendingInvoicingWidget,
 };
 
 export function hasWidget(code: string): boolean {

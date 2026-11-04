@@ -70,6 +70,8 @@ export interface Customer extends MasterRecord {
   price_list_id: string | null;
   payment_method_id: string | null;
   credit_limit: number | null;
+  /** Recargo de equivalencia en sus facturas (fase 4). */
+  equivalence_surcharge: boolean;
   notes: string;
   sales_rep_name: string | null;
   farm_count: number;
