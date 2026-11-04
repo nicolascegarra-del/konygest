@@ -854,10 +854,10 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--password", help="contraseña de los usuarios demo")
     parser.add_argument("--restablecer-contrasena", action="store_true", dest="reset_password")
     parser.add_argument("--confirmar-produccion", action="store_true", dest="confirm_production")
-    args = parser.parse_args(argv)
     # Compatibilidad con el uso anterior: `python -m app.seed_demo <contraseña>`
-    if args.password is None and len(argv) == 1 and not argv[0].startswith("-"):
-        args.password = argv[0]
+    parser.add_argument("legacy_password", nargs="?", help=argparse.SUPPRESS)
+    args = parser.parse_args(argv)
+    args.password = args.password or args.legacy_password
     return args
 
 
