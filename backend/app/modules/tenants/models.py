@@ -18,6 +18,14 @@ class Tenant(SQLModel, table=True):
     id: UUID = id_field()
     name: str = Field(max_length=200)
     tax_id: str | None = Field(default=None, max_length=20)
+    # Datos fiscales que salen en facturas y albaranes
+    legal_name: str = Field(default="", max_length=200)  # razón social, si difiere del nombre
+    address: str = Field(default="", max_length=300)
+    postal_code: str = Field(default="", max_length=10)
+    city: str = Field(default="", max_length=100)
+    province: str = Field(default="", max_length=100)
+    # Nº de registro/autorización del establecimiento de piensos (Reglamento 183/2005)
+    feed_registration: str = Field(default="", max_length=50)
     status: TenantStatus = Field(default=TenantStatus.TRIAL, index=True)
     plan_code: str | None = Field(default=None, max_length=50)
     require_2fa: bool = False

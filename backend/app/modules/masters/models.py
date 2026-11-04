@@ -146,6 +146,8 @@ class Customer(SQLModel, table=True):
         default=None, foreign_key="payment_method.id", ondelete="SET NULL"
     )
     credit_limit: Decimal | None = Field(default=None, max_digits=14, decimal_places=2)
+    # Recargo de equivalencia: se aplica en factura con el recargo de cada tipo de IVA
+    equivalence_surcharge: bool = False
     notes: str = Field(default="", max_length=2000)
     is_active: bool = True
     created_at: datetime = created_at_field()

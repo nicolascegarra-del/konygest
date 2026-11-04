@@ -123,6 +123,8 @@ class CustomerIn(BaseModel):
     price_list_id: UUID | None = None
     payment_method_id: UUID | None = None
     credit_limit: Money | None = None
+    # Recargo de equivalencia en sus facturas (con el recargo de cada tipo de IVA)
+    equivalence_surcharge: bool = False
     notes: _text(2000) = ""
     is_active: bool = True
     # Precios negociados; si no se envía, no se tocan
